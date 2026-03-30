@@ -81,6 +81,10 @@ export default function (pi: ExtensionAPI) {
         messageTokens = usedTokens - systemToolsTokens;
       }
 
+      // Buffer tokens: the reserved space at the end of the context window.
+      // Pi uses a compaction setting `reserveTokens` (default 16384) to trigger compaction
+      // when context usage eats into this space. The model's maxTokens is typically the same
+      // value and serves as a great semantic proxy for this "output buffer".
       const bufferTokens = maxOutputTokens;
       const freeTokens =
         usedTokens !== null
