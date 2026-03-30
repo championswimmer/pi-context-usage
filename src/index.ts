@@ -97,10 +97,11 @@ export default function (pi: ExtensionAPI) {
       const TOTAL_CELLS = ROWS * COLS;
 
       // Symbols
-      const SYM_SYSTEM = "◉";
+      // Use single-width symbols to keep columns aligned across rows.
+      const SYM_SYSTEM = "◍";
       const SYM_MESSAGE = "●";
       const SYM_FREE = "·";
-      const SYM_BUFFER = "◎";
+      const SYM_BUFFER = "○";
 
       // Calculate cell counts
       let systemCells = Math.round(
@@ -154,31 +155,12 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
-      // Render grid with indentation for partial rows at section boundaries
+      // Render full-width grid lines
       const gridLines: string[] = [];
       for (let row = 0; row < ROWS; row++) {
         const start = row * COLS;
         const rowCells = cells.slice(start, start + COLS);
-
-        // Check if this row is at the boundary where buffer starts
-        // If buffer doesn't start at col 0 of this row, indent it
-        const bufferStartIdx = TOTAL_CELLS - bufferCells;
-        const rowStartIdx = row * COLS;
-        const rowEndIdx = rowStartIdx + COLS;
-
-        if (
-          bufferStartIdx > rowStartIdx &&
-          bufferStartIdx < rowEndIdx &&
-          rowCells.some((c) => c === SYM_BUFFER)
-        ) {
-          // This row has a transition into buffer mid-row
-          const offset = bufferStartIdx - rowStartIdx;
-          const indent = "  ".repeat(offset);
-          const bufferPart = rowCells.slice(offset);
-          gridLines.push(indent + bufferPart.map(colorCell).join(" "));
-        } else {
-          gridLines.push(rowCells.map(colorCell).join(" "));
-        }
+        gridLines.push(rowCells.map(colorCell).join(" "));
       }
 
       // --- Format numbers ---
