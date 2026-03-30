@@ -1,0 +1,23 @@
+{
+  "name": "pi-context-usage",
+  "version": "1.0.0",
+  "description": "Pi extension that shows context window usage visualization",
+  "keywords": [
+    "pi-package"
+  ],
+  "author": "",
+  "license": "ISC",
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
+}
