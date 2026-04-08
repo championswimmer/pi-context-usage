@@ -35,7 +35,7 @@ claude-sonnet-4-20250514   73k / 200k tokens (37%)
 ### As a pi package
 
 ```bash
-pi install git:github.com/youruser/pi-context-usage
+pi install git:github.com/championswimmer/pi-context-usage
 ```
 
 ### Manual (project-local)
