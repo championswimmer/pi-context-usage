@@ -1,6 +1,6 @@
 {
   "name": "pi-context-usage",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pi extension that shows context window usage visualization",
   "keywords": [
     "pi-package"
