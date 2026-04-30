@@ -22,6 +22,7 @@ export type SystemToolsSection = {
   systemPrompt: {
     tokens: number;
     chars: number;
+    text: string;
   };
   tools: ToolBreakdown[];
   totalTokens: number;
@@ -62,10 +63,12 @@ export type TurnBreakdown = {
 export function computeSystemPromptTokens(text: string): {
   tokens: number;
   chars: number;
+  text: string;
 } {
   return {
     tokens: Math.ceil(text.length / 4),
     chars: text.length,
+    text,
   };
 }
 

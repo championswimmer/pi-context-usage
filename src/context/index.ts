@@ -1,5 +1,4 @@
 import {
-  DynamicBorder,
   getSelectListTheme,
   type ExtensionAPI,
   type ExtensionCommandContext,
@@ -9,6 +8,7 @@ import {
   Key,
   matchesKey,
   truncateToWidth,
+  visibleWidth,
   type AutocompleteItem,
   type Component,
   type TUI,
@@ -32,6 +32,7 @@ type SectionKey = "systemPrompt" | "tools" | "conversation";
 type VisibleRow =
   | { kind: "section"; key: SectionKey }
   | { kind: "systemPromptSummary" }
+  | { kind: "systemPromptContent"; lineIndex: number }
   | { kind: "systemPromptNote" }
   | { kind: "tool"; index: number }
   | { kind: "toolDetail"; index: number; lineIndex: number }
@@ -87,9 +88,38 @@ function renderPlainLine(indent: number, text: string): string {
   return `${" ".repeat(indent)}${text}`;
 }
 
+/** Wrap an array of content lines in a Unicode rounded-corner box. */
+function wrapInBox(
+  lines: string[],
+  width: number,
+  colorFn: (s: string) => string,
+  title?: string
+): string[] {
+  const inner = Math.max(2, width - 2); // space inside │…│
+
+  // Top bar: ╭── title ──╮
+  const topFill = title
+    ? (() => {
+        const label = ` ${title} `;
+        const remain = Math.max(0, inner - label.length);
+        const left = Math.floor(remain / 2);
+        const right = remain - left;
+        return `${"─".repeat(left)}${label}${"─".repeat(right)}`;
+      })()
+    : "─".repeat(inner);
+  const top = colorFn(`╭${topFill}╮`);
+  const bottom = colorFn(`╰${"─".repeat(inner)}╯`);
+
+  const boxed = lines.map((line) => {
+    const vw = visibleWidth(line);
+    const pad = Math.max(0, inner - vw);
+    return colorFn("│") + line + " ".repeat(pad) + colorFn("│");
+  });
+
+  return [top, ...boxed, bottom];
+}
+
 class ContextDetailsOverlay implements Component {
-  private border: DynamicBorder;
-  private footerBorder: DynamicBorder;
   private readonly selectTheme = getSelectListTheme();
   private readonly sectionExpanded: Record<SectionKey, boolean> = {
     systemPrompt: true,
@@ -98,6 +128,8 @@ class ContextDetailsOverlay implements Component {
   };
   private readonly expandedTools = new Set<number>();
   private readonly expandedTurns = new Set<number>();
+  private expandedSystemPromptContent = false;
+  private readonly systemPromptLines: string[];
   private focusIndex = 0;
   private scrollOffset = 0;
 
@@ -109,20 +141,21 @@ class ContextDetailsOverlay implements Component {
     private readonly turns: TurnBreakdown[],
     private readonly done: (result: void) => void
   ) {
-    this.border = new DynamicBorder((text) => this.theme.fg("accent", text));
-    this.footerBorder = new DynamicBorder((text) => this.theme.fg("muted", text));
+    this.systemPromptLines = systemTools.systemPrompt.text.split("\n");
   }
 
-  invalidate(): void {
-    this.border.invalidate();
-    this.footerBorder.invalidate();
-  }
+  invalidate(): void {}
 
   private getVisibleRows(): VisibleRow[] {
     const rows: VisibleRow[] = [{ kind: "section", key: "systemPrompt" }];
 
     if (this.sectionExpanded.systemPrompt) {
       rows.push({ kind: "systemPromptSummary" });
+      if (this.expandedSystemPromptContent) {
+        this.systemPromptLines.forEach((_, lineIndex) => {
+          rows.push({ kind: "systemPromptContent", lineIndex });
+        });
+      }
       if (
         this.systemTools.cachedTokens !== null &&
         this.systemTools.cachedTokens !== this.systemTools.totalTokens
@@ -211,6 +244,10 @@ class ContextDetailsOverlay implements Component {
       case "section":
         this.sectionExpanded[row.key] = expandOnly ? true : !this.sectionExpanded[row.key];
         return;
+      case "systemPromptSummary":
+        if (expandOnly) this.expandedSystemPromptContent = true;
+        else this.expandedSystemPromptContent = !this.expandedSystemPromptContent;
+        return;
       case "tool":
         if (expandOnly) this.expandedTools.add(row.index);
         else if (this.expandedTools.has(row.index)) this.expandedTools.delete(row.index);
@@ -235,6 +272,15 @@ class ContextDetailsOverlay implements Component {
       case "section":
         this.sectionExpanded[row.key] = false;
         return;
+      case "systemPromptSummary":
+        this.expandedSystemPromptContent = false;
+        return;
+      case "systemPromptContent": {
+        this.expandedSystemPromptContent = false;
+        const parentIndex = rows.findIndex((candidate) => candidate.kind === "systemPromptSummary");
+        if (parentIndex >= 0) this.focusIndex = parentIndex;
+        return;
+      }
       case "tool":
         this.expandedTools.delete(row.index);
         return;
@@ -317,7 +363,7 @@ class ContextDetailsOverlay implements Component {
   }
 
   private renderRow(row: VisibleRow, isFocused: boolean, width: number): string {
-    const lineWidth = Math.max(10, width - 2);
+    const lineWidth = Math.max(10, width);
     let text = "";
     let indent = 0;
 
@@ -329,14 +375,16 @@ class ContextDetailsOverlay implements Component {
       }
       case "systemPromptSummary": {
         indent = 2;
-        text = this.theme.bold(
-          this.theme.fg(
-            "accent",
-            `System prompt: ${fmtTokens(this.systemTools.systemPrompt.tokens)} tokens (${formatInt(
-              this.systemTools.systemPrompt.chars
-            )} chars)`
-          )
-        );
+        const spExpanded = this.expandedSystemPromptContent;
+        const spLabel = `System prompt: ${fmtTokens(this.systemTools.systemPrompt.tokens)} tokens (${formatInt(
+          this.systemTools.systemPrompt.chars
+        )} chars)`;
+        text = `${spExpanded ? "▾" : "▸"} ${this.theme.bold(this.theme.fg("accent", spLabel))}`;
+        break;
+      }
+      case "systemPromptContent": {
+        indent = 4;
+        text = this.theme.fg("muted", this.systemPromptLines[row.lineIndex] ?? "");
         break;
       }
       case "systemPromptNote": {
@@ -392,6 +440,7 @@ class ContextDetailsOverlay implements Component {
   }
 
   render(width: number): string[] {
+    const innerWidth = Math.max(10, width - 2); // subtract 2 for box side borders
     const summaryLines = renderUsageSummary(this.buckets, this.theme);
     const rows = this.getVisibleRows();
     this.clampFocus(rows);
@@ -401,29 +450,27 @@ class ContextDetailsOverlay implements Component {
 
     const visibleRows = rows.slice(this.scrollOffset, this.scrollOffset + bodyHeight);
     const bodyLines = visibleRows.map((row, visibleIndex) =>
-      this.renderRow(row, this.scrollOffset + visibleIndex === this.focusIndex, width)
+      this.renderRow(row, this.scrollOffset + visibleIndex === this.focusIndex, innerWidth)
     );
 
     while (bodyLines.length < bodyHeight) bodyLines.push("");
 
-    const lines = [
-      this.theme.bold("Context Details"),
-      ...this.border.render(width),
-      ...summaryLines.map((line) => truncateToWidth(line, width)),
+    const innerLines: string[] = [
+      ...summaryLines.map((line) => truncateToWidth(line, innerWidth)),
       "",
       this.theme.fg("muted", `${rows.length} rows · focus ${this.focusIndex + 1}/${rows.length}`),
       ...bodyLines,
-      ...this.footerBorder.render(width),
+      "",
       truncateToWidth(
         this.theme.fg(
           "muted",
           "↑/↓ move  Enter/→ expand  ← collapse  Tab jump sections  PgUp/PgDn scroll  Home/End  Esc/q close"
         ),
-        width
+        innerWidth
       ),
     ];
 
-    return lines.map((line) => truncateToWidth(line, Math.max(1, width)));
+    return wrapInBox(innerLines, width, (s) => this.theme.fg("border", s), "Context Details");
   }
 }
 
