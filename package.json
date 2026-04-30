@@ -10,6 +10,9 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
+    ],
+    "skills": [
+      "./.agents/skills"
     ]
   },
   "dependencies": {

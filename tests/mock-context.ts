@@ -44,8 +44,10 @@ const mockCtx = {
 };
 
 const mockPi = {
-  registerCommand: (_name: string, { handler }: { handler: Function }) => {
-    handler([], mockCtx);
+  registerCommand: (name: string, { handler }: { handler: Function }) => {
+    if (name === "context") {
+      handler("", mockCtx);
+    }
   },
 };
 
