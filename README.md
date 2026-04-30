@@ -1,38 +1,131 @@
 # pi-context-usage
 
-A [pi](https://github.com/badlogic/pi-mono) extension package that visualizes context window usage with `/context`, and includes a release workflow via `/release` plus a packaged `release` skill.
+A [pi](https://github.com/badlogic/pi-mono) extension package that adds:
+
+- `/context` — a dot-grid visualization of current context usage
+- `/context details` — a deeper breakdown of system prompt, active tools, and conversation turns
+- `/release <major|minor|patch>` — the repository release workflow
 
 ## Usage
 
-### Context visualization
+### Context summary
 
 ```text
 /context
 ```
 
-Displays a dot-grid visualization of your context window:
+Shows the existing dot-grid summary:
 
-```
+```text
 Context Usage
 
-◉ ◉ ◉ ◉ ◉ ◉ ◉ ◉ ◉ ◉ ◉
-● ● ● ● · · · · · · ·
+◍ ◍ ◍ ◍ ◍ ◍ ◍ ◍ ◍ ● ●
+● ● ● ● ● · · · · · ·
 · · · · · · · · · · ·
 · · · · · · · · · · ·
 · · · · · · · · · · ·
 · · · · · · · · · · ·
-        ◎ ◎ ◎ ◎ ◎ ◎ ◎
-◎ ◎ ◎ ◎ ◎ ◎ ◎ ◎ ◎ ◎ ◎
+· · · · · · · · · · ·
+· · · · · · ○ ○ ○ ○ ○
 
-claude-sonnet-4-20250514   73k / 200k tokens (37%)
+claude-sonnet-4-5   23.4k / 200.0k tokens (12%)
 
-◉ System/Tools:   30.0k (15%)
-● Messages:       43.0k (22%)
-· Free Space:     78.6k (39%)
-◎ Buffer:         48.4k (24%)
+◍ System/Tools:    19.4k (10%)
+● Messages:          4.0k (2%)
+· Free Space:      160.2k (80%)
+○ Buffer:           16.4k (8%)
 ```
 
-### Release automation
+### Context details
+
+```text
+/context details
+```
+
+When UI is available, this opens a keyboard-driven overlay that keeps the grid summary at the top and adds expandable sections for:
+
+- **System Prompt** — visible system prompt token estimate from `ctx.getSystemPrompt()`
+- **Tools** — active tool breakdown from `pi.getAllTools()` filtered by `pi.getActiveTools()`
+- **Conversation** — one line per user turn, plus inline compaction summaries and per-message drill-down
+
+Keyboard shortcuts in the overlay:
+
+- `↑/↓` move focus
+- `Enter` or `→` expand a section/row
+- `←` collapse a section/row
+- `Tab` jump between top-level sections
+- `PageUp/PageDown`, `Home/End` scroll faster
+- `Esc` or `q` close
+
+When UI is not available, `/context details` falls back to a plain-text dump.
+
+Example plain-text output:
+
+```text
+System / Tools Details
+
+Item                Tokens  Chars
+System prompt         6.2k  24,800
+read                    70     279
+bash                    61     244
+edit                   142     567
+Total visible parts    6.5k  25,890
+
+Note: visible parts sum to 6.5k tokens, while the last assistant cache reported 19.4k tokens. The cache number includes provider-side scaffolding that extensions cannot inspect.
+
+Conversation (6 turns)
+
+ #1  10:41  U  Inspect the current implementation of /context.      1.1k    1.1k cum
+ #2  10:44  U  Draft a plan for /context details.                    0.8k    1.9k cum
+  Σ  10:45  Σ  Earlier discussion established the design…            0.4k    2.3k cum
+ #3  10:49  U  Implement the refactor baseline first.                1.3k    3.6k cum
+```
+
+## Install
+
+### As a pi package
+
+```bash
+pi install git:github.com/championswimmer/pi-context-usage
+```
+
+### Manual (project-local)
+
+Copy or symlink this directory into `.pi/extensions/pi-context-usage/`.
+
+## Development
+
+```bash
+# Load extension directly into a live pi session
+pi -e ./src/index.ts
+
+# After sending at least one message
+/context
+/context details
+
+# Standalone mock tests
+bun run test:mock
+bun run test:mock-details
+```
+
+## How it works
+
+### Summary buckets
+
+- **System/Tools** (`◍`): uses the last successful assistant `usage.cacheRead + usage.cacheWrite` when available, otherwise falls back to a 15% estimate of used tokens
+- **Messages** (`●`): `usedTokens - systemToolsTokens`
+- **Free Space** (`·`): `contextWindow - usedTokens - bufferTokens`
+- **Buffer** (`○`): reserved model output space from `model.maxTokens`
+
+### Details view estimates
+
+- **System prompt tokens**: `Math.ceil(systemPrompt.length / 4)`
+- **Per-tool tokens**: `Math.ceil((name + description).length / 4) + Math.ceil(JSON.stringify(parameters).length / 4)`
+- **Turn tokens**: summed via pi's exported `estimateTokens(message)` heuristic
+
+Because pi does not expose the exact provider-serialized request payload, the visible `system prompt + tools` total is intentionally labeled as an approximation. The cached assistant number remains the authoritative top-level System/Tools value used by the grid.
+
+## Release automation
 
 ```text
 /release patch
@@ -56,35 +149,10 @@ Prerequisites:
 - you can push to the repository remote
 - `npm whoami` succeeds for an account that can publish `pi-context-usage`
 
-### Release skill
+## Release skill
 
 This package also ships a `release` skill that teaches pi when and how to use the repo's release flow. If the skill is loaded manually, it will direct the agent to prefer:
 
 ```text
 /release major|minor|patch
 ```
-
-## Install
-
-### As a pi package
-
-```bash
-pi install git:github.com/championswimmer/pi-context-usage
-```
-
-### Manual (project-local)
-
-Copy or symlink this directory into `.pi/extensions/pi-context-usage/`.
-
-### Quick test
-
-```bash
-pi -e ./src/index.ts
-```
-
-## How it works
-
-- **System/Tools** (◉): Estimated from cache token counts in the last assistant response (cache typically holds the system prompt and tool definitions). Falls back to ~15% estimate if no cache data available.
-- **Messages** (●): Conversation messages (user + assistant + tool results).
-- **Free Space** (·): Remaining tokens available for conversation.
-- **Buffer** (◎): Reserved for model output (`maxTokens`).

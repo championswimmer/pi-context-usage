@@ -2,107 +2,128 @@
 
 ## Overview
 
-This is a **pi extension** that adds a `/context` slash command to [pi](https://github.com/badlogic/pi-mono), a coding agent. The command displays a dot-grid visualization of context window token usage (system/tools, messages, free space, output buffer).
+This is a **pi extension** that adds two context-inspection commands to [pi](https://github.com/badlogic/pi-mono):
+
+- `/context` — the compact dot-grid visualization of context-window usage
+- `/context details` — a deeper token breakdown for the visible system prompt, active tools, and conversation turns
+
+The repository also includes the `/release` command and a matching `release` skill.
 
 ## Repository Structure
 
-```
+```text
 .
-├── AGENTS.md              # This file
-├── README.md              # User-facing docs, install instructions, usage examples
-├── package.json           # Package manifest (pi extension entry point, dependencies)
+├── AGENTS.md
+├── README.md
+├── package.json
 ├── src/
-│   └── index.ts           # Entire extension source — single file
+│   ├── index.ts                # Entry point; registers commands and re-exports helpers
+│   ├── release.ts              # /release implementation
+│   └── context/
+│       ├── index.ts            # /context command routing + details overlay/plain rendering
+│       ├── tokens.ts           # Usage bucket math and shared formatting helpers
+│       ├── grid.ts             # Dot-grid rendering shared by summary/details views
+│       └── breakdown.ts        # System/tools + conversation breakdown calculations
 └── tests/
-    └── mock-context.ts    # Standalone mock/render test (no pi session needed)
+    └── mock-context.ts         # Standalone Bun mock for /context and /context details
 ```
 
 ## Key Files
 
 ### `src/index.ts`
-The **only source file**. Contains the full extension implementation:
-- Exports a default function receiving `ExtensionAPI` from pi
-- Registers a `/context` command via `pi.registerCommand()`
-- Reads context usage from `ctx.getContextUsage()` and model info from `ctx.model`
-- Estimates **system/tools** tokens using cache heuristics from session history:
-  - Iterates `ctx.sessionManager.getBranch()` backwards to find the last successful assistant message with `usage` data
-  - Uses `cacheRead + cacheWrite` as a proxy for system prompt + tool definition tokens (these portions are typically cached between turns)
-  - Falls back to a 15% estimate of `usedTokens` when no cache data is available
-- Reserves `model.maxTokens` as the **buffer** (output space) — pi triggers compaction when used tokens encroach this reserve (`reserveTokens`)
-- Calculates **free tokens** as `contextWindow − usedTokens − bufferTokens` (clamped to ≥ 0)
-- Builds an **8×11 dot-grid** visualization using Unicode symbols `◍ ● · ○`, inspired by the GitHub Copilot coding agent style
-- Colors cells via `colorCell()` mapping each symbol to a `ctx.ui.theme` color role
-- Formats token counts via `fmtTokens()` helper (adds `k`/`m` suffixes for large numbers)
-- Uses `ctx.ui.notify()` to display the assembled output
+Small entry point that:
+- registers `/context` from `src/context/index.ts`
+- registers `/release` from `src/release.ts`
+- re-exports shared helpers used by the mock test
 
-> **Note:** The file header comment still shows old symbols (`◉ ◎`) — a stale comment; the actual runtime symbols are `◍` (system) and `○` (buffer).
+### `src/context/tokens.ts`
+Contains the shared token-bucket logic for the summary grid:
+- finds the last successful assistant `usage`
+- uses `cacheRead + cacheWrite` as the main **System/Tools** estimate
+- falls back to `15%` of used tokens when cache information is unavailable
+- computes **Messages**, **Free Space**, and **Buffer** buckets
+- exposes `fmtTokens()`, `formatInt()`, cell symbols, and grid-cell allocation helpers
+
+### `src/context/grid.ts`
+Renders the existing **8 × 11** dot-grid summary and its legend. This keeps bare `/context` behavior stable while also letting the details view reuse the same summary block at the top.
+
+### `src/context/breakdown.ts`
+Contains the deeper `/context details` calculations:
+- **System prompt** tokens from `ctx.getSystemPrompt()` using `chars / 4`
+- **Tool breakdown** from `pi.getAllTools()` filtered by `pi.getActiveTools()`
+- **Conversation turns** grouped by user message, with compaction entries rendered as their own pseudo-turns
+- turn totals derived from pi's exported `estimateTokens(message)` heuristic
+
+### `src/context/index.ts`
+Implements `/context` command routing:
+- empty args → summary grid via `ctx.ui.notify()`
+- `details` → plain-text details when `ctx.hasUI === false`
+- `details` → interactive overlay when `ctx.hasUI === true`
+
+The overlay keeps the summary grid visible and provides expandable sections for:
+- System Prompt
+- Tools
+- Conversation
+
+### `src/release.ts`
+Contains the extracted `/release` workflow:
+- validates git state
+- verifies npm auth and unpublished version
+- runs `npm run test:mock`
+- bumps version, commits, publishes, tags, and pushes
 
 ### `tests/mock-context.ts`
-A standalone Bun script that exercises the extension logic against mock token data, without a live pi session. Uses `mockCtx` / `mockPi` shims and logs captured `notify()` output to the terminal. Useful for quickly verifying grid layout and color rendering changes.
-
-```bash
-bun run test:mock
-```
-
-### `package.json`
-- `pi.extensions` → `["./src/index.ts"]` (extension entry point)
-- `keywords: ["pi-package"]` — marks this as installable via `pi install`
-- `scripts.test:mock` — runs `tests/mock-context.ts` via Bun
-- Runtime deps: `@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui`, `@sinclair/typebox`
-- Dev deps: `typescript`
+Standalone Bun test script that:
+- mocks a system prompt, active tools, and a multi-turn branch
+- exercises both `/context` and `/context details`
+- prints captured output for visual inspection
+- asserts tool sorting and turn-count/token-count sanity checks
 
 ## Development
 
 ```bash
-# Load extension directly into a live pi session
+# Load extension directly into pi
 pi -e ./src/index.ts
 
-# Type /context after sending at least one message
+# After sending a few messages
+/context
+/context details
 
-# Run standalone mock render test (no pi session needed)
+# Mock tests
 bun run test:mock
+bun run test:mock-details
 ```
 
 ## Architecture Notes
 
 - **No build step required** — pi loads `.ts` files directly via Bun
-- **Single-file extension** — all logic is in `src/index.ts`; no utilities, no config files
-- The extension is **stateless**: reads all data from live session state on each invocation
+- **Stateless command logic** — every invocation reads live session state from `ctx`
+- **Shared summary renderer** — both `/context` and `/context details` use the same grid/bucket helpers
+- **Approximate details math** — visible system prompt + tool totals are intentionally approximate because pi does not expose the exact provider-side serialized payload
+- **Authoritative top-level number** — the summary grid still trusts assistant cache usage (`cacheRead + cacheWrite`) for System/Tools
 
-### Token Breakdown (4 Categories)
+## Token Breakdown Categories
 
 | Category     | Symbol | Theme color role | Token source |
 |--------------|--------|------------------|--------------|
-| System/Tools | `◍`    | `accent`         | `cacheRead + cacheWrite` from last assistant `usage`; falls back to 15% of `usedTokens` |
-| Messages     | `●`    | `success`        | `usedTokens − systemToolsTokens` |
-| Free Space   | `·`    | `dim`            | `contextWindow − usedTokens − bufferTokens` (clamped to ≥ 0) |
-| Buffer       | `○`    | `warning`        | `model.maxTokens` — reserved output space; pi triggers compaction when context usage reaches this boundary |
+| System/Tools | `◍`    | `accent`         | `cacheRead + cacheWrite` from the last successful assistant usage; fallback `15%` heuristic |
+| Messages     | `●`    | `success`        | `usedTokens - systemToolsTokens` |
+| Free Space   | `·`    | `dim`            | `contextWindow - usedTokens - bufferTokens` |
+| Buffer       | `○`    | `warning`        | `model.maxTokens` reserved for output |
 
-### Grid Layout
+## Details View Rules
 
-- Fixed **8 rows × 11 columns** = 88 cells total
-- Each cell ≈ `contextWindow / 88` tokens
-- Flat cell array fills left-to-right, top-to-bottom: system first → messages → free space → buffer appended at the tail
-- Non-zero categories always get at least 1 cell; overflow is resolved by reducing buffer cells first (clamped to 0), then excess cells are `pop()`-ed from the tail
+### System / tools section
 
-### Sample Output
+- System prompt estimate: `Math.ceil(systemPrompt.length / 4)`
+- Tool estimate: `name + description + JSON.stringify(parameters)` using the same `chars / 4` heuristic
+- Tools are sorted descending by estimated token cost
+- If visible `system prompt + tools` differs from cached assistant tokens, the UI shows a note explaining that provider-side envelopes/tool protocol overhead are not visible to extensions
 
-```
-Context Usage
+### Conversation section
 
-◍ ◍ ◍ ◍ ◍ ◍ ◍ ◍ ◍ ● ●
-● ● ● ● ● · · · · · ·
-· · · · · · · · · · ·
-· · · · · · · · · · ·
-· · · · · · · · · · ·
-· · · · · · · · · · ·
-· · · · · · · · · · ·
-· · · · · · ○ ○ ○ ○ ○
-
-claude-sonnet-4-5   23.4k / 200.0k tokens (12%)
-
-◍ System/Tools:    19.4k (10%)
-● Messages:          4.0k (2%)
-· Free Space:      160.2k (80%)
-○ Buffer:           16.4k (8%)
-```
+- A **turn** starts at each `user` message
+- Following `assistant`, `toolResult`, `bashExecution`, and `custom` entries are grouped into that turn until the next user message
+- `compaction` entries are shown as their own pseudo-turn with a `Σ` marker
+- Each row includes per-turn tokens and a cumulative running total
+- Expanded turn rows show per-message previews only, never full message bodies

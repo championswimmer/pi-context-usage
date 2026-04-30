@@ -24,6 +24,7 @@
     "typescript": "^6.0.2"
   },
   "scripts": {
-    "test:mock": "bun run ./tests/mock-context.ts"
+    "test:mock": "bun run ./tests/mock-context.ts",
+    "test:mock-details": "bun run ./tests/mock-context.ts details"
   }
 }
