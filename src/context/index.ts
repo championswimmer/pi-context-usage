@@ -350,15 +350,15 @@ class ContextDetailsOverlay implements Component {
   private sectionTitle(key: SectionKey): string {
     switch (key) {
       case "systemPrompt":
-        return `System Prompt  ${fmtTokens(this.systemTools.systemPrompt.tokens)} tokens (${formatInt(this.systemTools.systemPrompt.chars)} chars)`;
+        return `System Prompt  ${fmtTokens(this.systemTools.systemPrompt.tokens)} tokens est. (${formatInt(this.systemTools.systemPrompt.chars)} chars)`;
       case "tools":
         return `Tools (${this.systemTools.tools.length})  ${fmtTokens(
           this.systemTools.tools.reduce((sum, tool) => sum + tool.totalTokens, 0)
-        )} tokens`;
+        )} tokens est.`;
       case "conversation":
         return `Conversation (${this.turns.filter((turn) => turn.kind === "turn").length} turns)  ${fmtTokens(
           this.turns.reduce((sum, turn) => sum + turn.tokens, 0)
-        )} tokens`;
+        )} tokens est.`;
     }
   }
 
@@ -391,9 +391,9 @@ class ContextDetailsOverlay implements Component {
         indent = 4;
         text = this.theme.fg(
           "muted",
-          `Visible parts: ${fmtTokens(this.systemTools.totalTokens)} tokens vs cache ${fmtTokens(
+          `Visible parts: ${fmtTokens(this.systemTools.totalTokens)} tokens est. vs ${fmtTokens(
             this.systemTools.cachedTokens ?? 0
-          )}; provider-side envelopes are not visible to the extension.`
+          )} cached prompt tokens in the top summary; provider-side envelopes and cached context are not visible to the extension.`
         );
         break;
       }
@@ -420,7 +420,7 @@ class ContextDetailsOverlay implements Component {
         const icon = this.theme.bold(this.theme.fg(getTurnColor(turn), getTurnIcon(turn)));
         text = `${expanded ? "▾" : "▸"} ${prefix}  ${formatTurnTime(turn.timestamp)}  ${icon}  ${turn.preview}  ${this.theme.bold(
           fmtTokens(turn.tokens)
-        )}  ${this.theme.fg("muted", `${fmtTokens(turn.cumulativeTokens)} cum`)}`;
+        )}  ${this.theme.fg("muted", `${fmtTokens(turn.cumulativeTokens)} cum est`)}`;
         break;
       }
       case "conversationDetail": {

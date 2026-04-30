@@ -43,17 +43,21 @@ export function renderUsageSummary(buckets: UsageBuckets, theme: Theme): string[
       buckets.contextWindow
     )} tokens (${percentStr})`,
     "",
-    `${theme.fg("accent", SYM_SYSTEM)} System/Tools: ${fmtTokens(
+    `${theme.fg("accent", SYM_SYSTEM)} Cached Prompt*: ${fmtTokens(
       buckets.systemToolsTokens
     ).padStart(7)} (${pct(buckets.systemToolsTokens)})`,
-    `${theme.fg("success", SYM_MESSAGE)} Messages:     ${fmtTokens(
+    `${theme.fg("success", SYM_MESSAGE)} Other Context:  ${fmtTokens(
       buckets.messageTokens
     ).padStart(7)} (${pct(buckets.messageTokens)})`,
-    `${theme.fg("dim", SYM_FREE)} Free Space:   ${fmtTokens(buckets.freeTokens).padStart(
+    `${theme.fg("dim", SYM_FREE)} Free Space:     ${fmtTokens(buckets.freeTokens).padStart(
       7
     )} (${pct(buckets.freeTokens)})`,
-    `${theme.fg("warning", SYM_BUFFER)} Buffer:       ${fmtTokens(
+    `${theme.fg("warning", SYM_BUFFER)} Buffer:         ${fmtTokens(
       buckets.bufferTokens
     ).padStart(7)} (${pct(buckets.bufferTokens)})`,
+    theme.fg(
+      "muted",
+      "* From the last assistant cache (cacheRead + cacheWrite); details below use visible-entry estimates and will differ."
+    ),
   ];
 }

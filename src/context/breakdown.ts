@@ -465,7 +465,7 @@ export function formatSystemToolsSection(section: SystemToolsSection, theme: The
     lines.push(
       theme.fg(
         "muted",
-        `Note: visible parts sum to ${fmtTokens(section.totalTokens)} tokens, while the last assistant cache reported ${fmtTokens(section.cachedTokens)} tokens. The cache number includes provider-side scaffolding that extensions cannot inspect.`
+        `Note: visible parts sum to ${fmtTokens(section.totalTokens)} tokens, while the top summary uses ${fmtTokens(section.cachedTokens)} cached prompt tokens from the last assistant cache. That cache number includes provider-side scaffolding and cached context that extensions cannot inspect.`
       )
     );
   }
@@ -485,7 +485,14 @@ export function formatConversationSection(
     ...visibleTurns.map((turn) => fmtTokens(turn.cumulativeTokens).length)
   );
 
-  const lines = [theme.bold(`Conversation (${turns.filter((turn) => turn.kind === "turn").length} turns)`), ""];
+  const lines = [
+    theme.bold(`Conversation (${turns.filter((turn) => turn.kind === "turn").length} turns)`),
+    theme.fg(
+      "muted",
+      "Per-turn and cumulative values are visible-entry estimates from estimateTokens(message); they will not match the summary's provider/cache totals."
+    ),
+    "",
+  ];
 
   for (const turn of visibleTurns) {
     const prefix = turn.kind === "compaction" ? "Σ" : `#${turn.turnNumber}`;
@@ -493,7 +500,7 @@ export function formatConversationSection(
     lines.push(
       `${padLeft(prefix, 3)}  ${formatTurnTime(turn.timestamp)}  ${icon}  ${turn.preview}  ${theme.bold(
         padLeft(fmtTokens(turn.tokens), tokenWidth)
-      )}  ${theme.fg("muted", `${padLeft(fmtTokens(turn.cumulativeTokens), tokenWidth)} cum`)}`
+      )}  ${theme.fg("muted", `${padLeft(fmtTokens(turn.cumulativeTokens), tokenWidth)} cum est`)}`
     );
   }
 
