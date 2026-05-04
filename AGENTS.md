@@ -38,10 +38,9 @@ Small entry point that:
 
 ### `src/context/tokens.ts`
 Contains the shared token-bucket logic for the summary grid:
-- finds the last successful assistant `usage`
-- uses `cacheRead + cacheWrite` as the main **System/Tools** estimate
-- falls back to `15%` of used tokens when cache information is unavailable
-- computes **Messages**, **Free Space**, and **Buffer** buckets
+- `computeUsageBuckets()` now accepts optional `systemPromptTokensEst` and `toolTokensEst` to split the old combined **System/Tools** bucket into separate **System Prompt** and **Tools** categories
+- falls back to `15%` of used tokens when estimates are unavailable
+- computes **Messages**, **Empty**, and **Buffer** buckets
 - exposes `fmtTokens()`, `formatInt()`, cell symbols, and grid-cell allocation helpers
 
 ### `src/context/grid.ts`
@@ -56,6 +55,7 @@ Contains the deeper `/context details` calculations:
 
 ### `src/context/index.ts`
 Implements `/context` command routing:
+- `buildSummary()` now computes `systemPromptTokens` and `toolTokens` from `ctx.getSystemPrompt()` and active tool info, then passes them to `computeUsageBuckets()`
 - empty args → summary grid via `ctx.ui.notify()`
 - `details` → plain-text details when `ctx.hasUI === false`
 - `details` → interactive overlay when `ctx.hasUI === true`
@@ -100,15 +100,16 @@ bun run test:mock-details
 - **Stateless command logic** — every invocation reads live session state from `ctx`
 - **Shared summary renderer** — both `/context` and `/context details` use the same grid/bucket helpers
 - **Approximate details math** — visible system prompt + tool totals are intentionally approximate because pi does not expose the exact provider-side serialized payload
-- **Authoritative top-level number** — the summary grid still trusts assistant cache usage (`cacheRead + cacheWrite`) for System/Tools
+- **Five distinct categories** — the summary grid separates System Prompt, Tools, Messages, Empty, and Buffer using five different symbols and colors
 
 ## Token Breakdown Categories
 
 | Category     | Symbol | Theme color role | Token source |
 |--------------|--------|------------------|--------------|
-| System/Tools | `◍`    | `accent`         | `cacheRead + cacheWrite` from the last successful assistant usage; fallback `15%` heuristic |
-| Messages     | `●`    | `success`        | `usedTokens - systemToolsTokens` |
-| Free Space   | `·`    | `dim`            | `contextWindow - usedTokens - bufferTokens` |
+| System Prompt | `◍`    | `accent`         | `Math.ceil(systemPrompt.length / 4)` — visible system prompt chars |
+| Tools        | `⚙`    | `muted`           | Sum of `Math.ceil((name + description + JSON.stringify(parameters)).length / 4)` over active tools |
+| Messages     | `●`    | `success`        | `usedTokens - systemPromptTokens - toolTokens` |
+| Empty        | `·`    | `dim`            | `contextWindow - usedTokens - bufferTokens` |
 | Buffer       | `○`    | `warning`        | `model.maxTokens` reserved for output |
 
 ## Details View Rules

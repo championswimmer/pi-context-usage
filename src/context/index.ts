@@ -19,13 +19,19 @@ import {
   formatConversationSection,
   formatSystemToolsSection,
   formatTurnTime,
+  getActiveToolDetails,
   getTurnColor,
   getTurnIcon,
   type SystemToolsSection,
   type TurnBreakdown,
 } from "./breakdown";
 import { renderUsageSummary } from "./grid";
-import { computeUsageBuckets, fmtTokens, formatInt, type UsageBuckets } from "./tokens";
+import {
+  computeUsageBuckets,
+  fmtTokens,
+  formatInt,
+  type UsageBuckets,
+} from "./tokens";
 
 type SectionKey = "systemPrompt" | "tools" | "conversation";
 
@@ -52,13 +58,37 @@ function usageHint(): string {
   return "Usage: /context [details]";
 }
 
-function buildSummary(ctx: ExtensionCommandContext): UsageBuckets | null {
+function buildSummary(
+  pi: ExtensionAPI,
+  ctx: ExtensionCommandContext
+): UsageBuckets | null {
   const usage = ctx.getContextUsage();
   if (!usage || !ctx.model) return null;
-  return computeUsageBuckets(usage, ctx.sessionManager.getBranch(), ctx.model);
+
+  const systemPrompt = ctx.getSystemPrompt();
+  const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+
+  const activeTools = getActiveToolDetails(pi);
+  const toolTokens = activeTools.reduce((sum, tool) => {
+    const nameDesc = tool.name.length + (tool.description || "").length;
+    const paramsStr = JSON.stringify(tool.parameters ?? {});
+    return sum + Math.ceil((nameDesc + paramsStr.length) / 4);
+  }, 0);
+
+  return computeUsageBuckets(
+    usage,
+    ctx.sessionManager.getBranch(),
+    ctx.model,
+    systemPromptTokens,
+    toolTokens
+  );
 }
 
-function notifySummary(ctx: ExtensionCommandContext, buckets: UsageBuckets): void {
+function notifySummary(
+  ctx: ExtensionCommandContext,
+  buckets: UsageBuckets,
+  _pi?: ExtensionAPI
+): void {
   ctx.ui.notify(["", ...renderUsageSummary(buckets, ctx.ui.theme), ""].join("\n"), "info");
 }
 
@@ -475,7 +505,7 @@ class ContextDetailsOverlay implements Component {
 }
 
 async function showDetails(pi: ExtensionAPI, ctx: ExtensionCommandContext): Promise<void> {
-  const buckets = buildSummary(ctx);
+  const buckets = buildSummary(pi, ctx);
   if (!buckets) {
     ctx.ui.notify("No context usage data available. Send a message first.", "warning");
     return;
@@ -510,7 +540,7 @@ export function registerContextCommand(pi: ExtensionAPI) {
     handler: async (args, ctx) => {
       const normalized = args.trim().toLowerCase();
 
-      const buckets = buildSummary(ctx);
+      const buckets = buildSummary(pi, ctx);
       if (!buckets) {
         ctx.ui.notify("No context usage data available. Send a message first.", "warning");
         return;

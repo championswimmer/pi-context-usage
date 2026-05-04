@@ -14,13 +14,13 @@ A [pi](https://github.com/badlogic/pi-mono) extension package that adds:
 /context
 ```
 
-Shows the existing dot-grid summary:
+Shows a dot-grid summary with five breakdown categories:
 
 ```text
 Context Usage
 
-◍ ◍ ◍ ◍ ◍ ◍ ◍ ◍ ◍ ● ●
-● ● ● ● ● · · · · · ·
+◍ ⚙ ● ● ● ● ● ● ● ● ●
+● ● ● ● · · · · · · ·
 · · · · · · · · · · ·
 · · · · · · · · · · ·
 · · · · · · · · · · ·
@@ -28,13 +28,13 @@ Context Usage
 · · · · · · · · · · ·
 · · · · · · ○ ○ ○ ○ ○
 
-claude-sonnet-4-5   23.4k / 200.0k tokens (12%)
+claude-sonnet-4-5   31.4k / 200.0k tokens (16%)
 
-◍ Cached Prompt*:  19.4k (10%)
-● Other Context:     4.0k (2%)
-· Free Space:      160.2k (80%)
+◍ System Prompt:    1.7k (1%)
+⚙ Tools:              275 (0%)
+● Messages:        29.4k (15%)
+· Empty:           152.2k (76%)
 ○ Buffer:           16.4k (8%)
-* From the last assistant cache (cacheRead + cacheWrite); details below use visible-entry estimates and will differ.
 ```
 
 ### Context details
@@ -72,15 +72,15 @@ bash                    61     244
 edit                   142     567
 Total visible parts    6.5k  25,890
 
-Note: visible parts sum to 6.5k tokens, while the top summary uses 19.4k cached prompt tokens from the last assistant cache. That cache number includes provider-side scaffolding and cached context that extensions cannot inspect.
+Note: visible parts sum to 2.2k tokens, while the top summary uses 14.3k cached prompt tokens from the last assistant cache. That cache number includes provider-side scaffolding and cached context that extensions cannot inspect.
 
 Conversation (6 turns)
 Per-turn and cumulative values are visible-entry estimates from estimateTokens(message); they will not match the summary's provider/cache totals.
 
- #1  10:41  U  Inspect the current implementation of /context.      1.1k    1.1k cum est
- #2  10:44  U  Draft a plan for /context details.                    0.8k    1.9k cum est
-  Σ  10:45  Σ  Earlier discussion established the design…            0.4k    2.3k cum est
- #3  10:49  U  Implement the refactor baseline first.                1.3k    3.6k cum est
+ #1  10:00  U  Can you inspect the repo and summarize how /context currently works?      55      55 cum est
+ #2  10:01  U  Now sketch a plan for a /context details mode with a deeper breakdown.      36      91 cum est
+  Σ  10:06  Σ  Earlier discussion established the design…      38     197 cum est
+ #3  10:10  U  Add the system prompt and active-tools breakdown next.      65     262 cum est
 ```
 
 ## Install
@@ -114,10 +114,15 @@ bun run test:mock-details
 
 ### Summary buckets
 
-- **Cached Prompt** (`◍`): uses the last successful assistant `usage.cacheRead + usage.cacheWrite` when available, otherwise falls back to a 15% estimate of used tokens
-- **Other Context** (`●`): `usedTokens - systemToolsTokens`
-- **Free Space** (`·`): `contextWindow - usedTokens - bufferTokens`
-- **Buffer** (`○`): reserved model output space from `model.maxTokens`
+| Category     | Symbol | Theme color | Token source |
+|--------------|--------|-------------|--------------|
+| System Prompt | `◍` | `accent` | `Math.ceil(systemPrompt.length / 4)` — estimated from visible system prompt text |
+| Tools        | `⚙` | `muted` | Sum of `Math.ceil((name + description + JSON.stringify(parameters)).length / 4)` over active tools |
+| Messages     | `●` | `success` | `usedTokens - systemPromptTokens - toolTokens` — conversation entries |
+| Empty        | `·` | `dim` | `contextWindow - usedTokens - bufferTokens` — unused space |
+| Buffer       | `○` | `warning` | `model.maxTokens` — reserved for model output |
+
+All visible estimates use a `chars / 4` heuristic. The grid distributes cells proportionally across the five categories.
 
 ### Details view estimates
 
@@ -125,7 +130,7 @@ bun run test:mock-details
 - **Per-tool tokens**: `Math.ceil((name + description).length / 4) + Math.ceil(JSON.stringify(parameters).length / 4)`
 - **Turn tokens**: summed via pi's exported `estimateTokens(message)` heuristic
 
-Because pi does not expose the exact provider-serialized request payload, the visible `system prompt + tools` total is intentionally labeled as an approximation. The cached assistant number remains the authoritative top-level cached-prompt value used by the grid, and it is not directly comparable to the visible estimates in the details view.
+Because pi does not expose the exact provider-serialized request payload, the visible `system prompt + tools` total is intentionally labeled as an approximation. The cache-provided number in `details` remains the authoritative cached-prompt value, and it is not directly comparable to the visible estimates.
 
 ## Release automation
 

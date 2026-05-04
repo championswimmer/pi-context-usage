@@ -6,6 +6,7 @@ import {
   SYM_FREE,
   SYM_MESSAGE,
   SYM_SYSTEM,
+  SYM_TOOL,
   buildGridCells,
   colorCell,
   fmtTokens,
@@ -43,21 +44,20 @@ export function renderUsageSummary(buckets: UsageBuckets, theme: Theme): string[
       buckets.contextWindow
     )} tokens (${percentStr})`,
     "",
-    `${theme.fg("accent", SYM_SYSTEM)} Cached Prompt*: ${fmtTokens(
-      buckets.systemToolsTokens
-    ).padStart(7)} (${pct(buckets.systemToolsTokens)})`,
-    `${theme.fg("success", SYM_MESSAGE)} Other Context:  ${fmtTokens(
+    `${theme.fg("accent", SYM_SYSTEM)} System Prompt: ${fmtTokens(
+      buckets.systemPromptTokens
+    ).padStart(7)} (${pct(buckets.systemPromptTokens)})`,
+    `${theme.fg("muted", SYM_TOOL)} Tools:          ${fmtTokens(
+      buckets.toolTokens
+    ).padStart(7)} (${pct(buckets.toolTokens)})`,
+    `${theme.fg("success", SYM_MESSAGE)} Messages:      ${fmtTokens(
       buckets.messageTokens
     ).padStart(7)} (${pct(buckets.messageTokens)})`,
-    `${theme.fg("dim", SYM_FREE)} Free Space:     ${fmtTokens(buckets.freeTokens).padStart(
+    `${theme.fg("dim", SYM_FREE)} Empty:          ${fmtTokens(buckets.freeTokens).padStart(
       7
     )} (${pct(buckets.freeTokens)})`,
     `${theme.fg("warning", SYM_BUFFER)} Buffer:         ${fmtTokens(
       buckets.bufferTokens
     ).padStart(7)} (${pct(buckets.bufferTokens)})`,
-    theme.fg(
-      "muted",
-      "* From the last assistant cache (cacheRead + cacheWrite); details below use visible-entry estimates and will differ."
-    ),
   ];
 }

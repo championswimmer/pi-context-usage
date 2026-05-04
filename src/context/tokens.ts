@@ -5,6 +5,7 @@ export const GRID_ROWS = 8;
 export const GRID_TOTAL_CELLS = GRID_COLS * GRID_ROWS;
 
 export const SYM_SYSTEM = "◍";
+export const SYM_TOOL = "⚙";
 export const SYM_MESSAGE = "●";
 export const SYM_FREE = "·";
 export const SYM_BUFFER = "○";
@@ -22,11 +23,11 @@ export type UsageBuckets = {
   usedTokens: number | null;
   percent: number | null;
   modelName: string;
-  systemToolsTokens: number;
+  systemPromptTokens: number;
+  toolTokens: number;
   messageTokens: number;
   freeTokens: number;
   bufferTokens: number;
-  cachedSystemToolsTokens: number | null;
 };
 
 export function fmtTokens(n: number): string {
@@ -70,23 +71,29 @@ export function getCachedSystemToolsTokens(entries: SessionEntry[]): number | nu
 export function computeUsageBuckets(
   usage: ContextUsage,
   entries: SessionEntry[],
-  model: { id?: string; name?: string; maxTokens?: number } | undefined
+  model: { id?: string; name?: string; maxTokens?: number } | undefined,
+  systemPromptTokensEst?: number,
+  toolTokensEst?: number
 ): UsageBuckets {
   const contextWindow = usage.contextWindow;
   const usedTokens = usage.tokens;
   const usedTokensOrZero = usedTokens ?? 0;
   const bufferTokens = model?.maxTokens || 0;
-  const cachedSystemToolsTokens = getCachedSystemToolsTokens(entries);
 
-  let systemToolsTokens = 0;
-  let messageTokens = 0;
+  const systemPromptTokens = systemPromptTokensEst ?? 0;
+  const toolTokens = toolTokensEst ?? 0;
+  const knownSystemToolTokens = systemPromptTokens + toolTokens;
 
-  if (cachedSystemToolsTokens !== null) {
-    systemToolsTokens = cachedSystemToolsTokens;
-    messageTokens = Math.max(0, usedTokensOrZero - cachedSystemToolsTokens);
+  let messageTokens: number;
+
+  if (knownSystemToolTokens > 0 && knownSystemToolTokens <= usedTokensOrZero) {
+    messageTokens = usedTokensOrZero - knownSystemToolTokens;
   } else if (usedTokens !== null) {
-    systemToolsTokens = Math.round(usedTokens * 0.15);
-    messageTokens = usedTokens - systemToolsTokens;
+    // Fallback: estimate system + tools at 15% of used tokens
+    const fallbackSystemTool = Math.round(usedTokens * 0.15);
+    messageTokens = usedTokens - fallbackSystemTool;
+  } else {
+    messageTokens = 0;
   }
 
   const freeTokens = Math.max(0, contextWindow - usedTokensOrZero - bufferTokens);
@@ -96,26 +103,28 @@ export function computeUsageBuckets(
     usedTokens,
     percent: usage.percent,
     modelName: model?.id || model?.name || "unknown",
-    systemToolsTokens,
+    systemPromptTokens,
+    toolTokens,
     messageTokens,
     freeTokens,
     bufferTokens,
-    cachedSystemToolsTokens,
   };
 }
 
 export function buildGridCells(buckets: UsageBuckets): string[] {
-  const { contextWindow, systemToolsTokens, messageTokens, bufferTokens } = buckets;
+  const { contextWindow, systemPromptTokens, toolTokens, messageTokens, bufferTokens } = buckets;
 
-  let systemCells = Math.round((systemToolsTokens / contextWindow) * GRID_TOTAL_CELLS);
+  let systemCells = Math.round((systemPromptTokens / contextWindow) * GRID_TOTAL_CELLS);
+  let toolCells = Math.round((toolTokens / contextWindow) * GRID_TOTAL_CELLS);
   let messageCells = Math.round((messageTokens / contextWindow) * GRID_TOTAL_CELLS);
   let bufferCells = Math.round((bufferTokens / contextWindow) * GRID_TOTAL_CELLS);
 
-  if (systemToolsTokens > 0 && systemCells === 0) systemCells = 1;
+  if (systemPromptTokens > 0 && systemCells === 0) systemCells = 1;
+  if (toolTokens > 0 && toolCells === 0) toolCells = 1;
   if (messageTokens > 0 && messageCells === 0) messageCells = 1;
   if (bufferTokens > 0 && bufferCells === 0) bufferCells = 1;
 
-  let freeCells = GRID_TOTAL_CELLS - systemCells - messageCells - bufferCells;
+  let freeCells = GRID_TOTAL_CELLS - systemCells - toolCells - messageCells - bufferCells;
   if (freeCells < 0) {
     bufferCells = Math.max(0, bufferCells + freeCells);
     freeCells = 0;
@@ -123,6 +132,7 @@ export function buildGridCells(buckets: UsageBuckets): string[] {
 
   const cells: string[] = [];
   for (let i = 0; i < systemCells; i++) cells.push(SYM_SYSTEM);
+  for (let i = 0; i < toolCells; i++) cells.push(SYM_TOOL);
   for (let i = 0; i < messageCells; i++) cells.push(SYM_MESSAGE);
   for (let i = 0; i < freeCells; i++) cells.push(SYM_FREE);
   for (let i = 0; i < bufferCells; i++) cells.push(SYM_BUFFER);
@@ -139,6 +149,8 @@ export function colorCell(sym: string, theme: Theme): string {
   switch (sym) {
     case SYM_SYSTEM:
       return theme.fg("accent", sym);
+    case SYM_TOOL:
+      return theme.fg("muted", sym);
     case SYM_MESSAGE:
       return theme.fg("success", sym);
     case SYM_FREE:

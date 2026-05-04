@@ -381,6 +381,16 @@ const mockCtx = {
   },
 };
 
+// The context command now needs getActiveToolDetails which internally uses pi.getAllTools()
+// to filter by pi.getActiveTools(). Since getAllTools is not called with the extended
+// tools in the summary-only path (it's only needed in buildSummary which we already mock),
+// we need to ensure the mockPi has those methods.
+(mockPi as any).registerCommand = (name: string, command: { handler: Function }) => {
+  commands.set(name, command.handler);
+};
+(mockPi as any).getActiveTools = () => mockTools.map((tool) => tool.name);
+(mockPi as any).getAllTools = () => [...(mockTools as any)];
+
 registerExtension(mockPi as any);
 
 const contextHandler = commands.get("context");
