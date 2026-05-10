@@ -6,6 +6,10 @@ A [pi](https://github.com/badlogic/pi-mono) extension package that adds:
 - `/context details` — a deeper breakdown of system prompt, active tools, and conversation turns
 - `/release <major|minor|patch>` — the repository release workflow
 
+> DEMO:   
+>
+> ![demo](./docs/recording.gif)
+
 ## Usage
 
 ### Context summary
