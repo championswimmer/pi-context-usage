@@ -3,7 +3,7 @@ import {
   type ExtensionAPI,
   type ExtensionCommandContext,
   type Theme,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
   Key,
   matchesKey,
@@ -12,7 +12,7 @@ import {
   type AutocompleteItem,
   type Component,
   type TUI,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 import {
   computeSystemToolsSection,
   computeTurnBreakdown,

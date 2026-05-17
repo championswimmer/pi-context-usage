@@ -1,4 +1,4 @@
-import type { ContextUsage, SessionEntry, Theme } from "@mariozechner/pi-coding-agent";
+import type { ContextUsage, SessionEntry, Theme } from "@earendil-works/pi-coding-agent";
 
 export const GRID_COLS = 11;
 export const GRID_ROWS = 8;
