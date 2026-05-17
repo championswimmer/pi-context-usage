@@ -5,7 +5,7 @@ import {
   type SessionEntry,
   type Theme,
   type ToolInfo,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { fmtTokens, formatInt, getCachedSystemToolsTokens } from "./tokens";
 
 export type ToolBreakdown = {
