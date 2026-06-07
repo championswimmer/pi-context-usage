@@ -4,7 +4,7 @@ description: Extend /context with a `details` subcommand that lets the user expa
 steps:
   - phase: discovery
     steps:
-      - "- [ ] step 1: confirm `estimateTokens(message)` is exported from `@mariozechner/pi-coding-agent` (it is — re-exported from `core/compaction/compaction.js`, chars/4 heuristic; images counted as 1200 tokens)"
+      - "- [ ] step 1: confirm `estimateTokens(message)` is exported from `@earendil-works/pi-coding-agent` (it is — re-exported from `core/compaction/compaction.js`, chars/4 heuristic; images counted as 1200 tokens)"
       - "- [ ] step 2: confirm `ctx.getSystemPrompt()` is available in `ExtensionCommandContext` and returns the fully-built system prompt string (yes — documented in extensions.md `ExtensionContext` section)"
       - "- [ ] step 3: confirm `pi.getActiveTools()` / `pi.getAllTools()` return `{ name, description, parameters, sourceInfo }` (yes — extensions.md, Tools section); decide to use `getActiveTools()` since only those are sent to the model"
       - "- [ ] step 4: verify there is no public API that returns Pi's exact serialized tool-definition payload — so per-tool tokens must be approximated by `name.length + description.length + JSON.stringify(parameters).length` divided by 4"
@@ -70,7 +70,7 @@ A research-backed plan to extend the `/context` extension so that running `/cont
 |---|---|---|
 | System prompt text | `ctx.getSystemPrompt()` | Returns the fully-built system prompt string at call time. Documented in `pi/docs/extensions.md` (ExtensionContext). |
 | Active tools (name, description, parameters JSON schema) | `pi.getActiveTools()` | Returns `{ name, description, parameters, sourceInfo }[]` for tools currently sent to the LLM. |
-| Per-message token estimate | `import { estimateTokens } from "@mariozechner/pi-coding-agent"` | Pi's own `chars/4` heuristic — same one used internally for compaction. Handles user/assistant/toolResult/bashExecution/custom; counts images as 1200 tokens. |
+| Per-message token estimate | `import { estimateTokens } from "@earendil-works/pi-coding-agent"` | Pi's own `chars/4` heuristic — same one used internally for compaction. Handles user/assistant/toolResult/bashExecution/custom; counts images as 1200 tokens. |
 | Conversation history | `ctx.sessionManager.getBranch()` | Walks current leaf to root; entries with `type === "message"` carry the `AgentMessage` we feed to `estimateTokens`. |
 | Last assistant `usage` (cache numbers) | Walk branch backwards → first non-aborted assistant `entry.message.usage` | Already used today for the System/Tools heuristic. Kept as the *authoritative* number on the grid. |
 | TUI building blocks | `ctx.ui.custom()`, `SelectList`, `DynamicBorder`, `getSelectListTheme()`, overlay options | See `pi/docs/tui.md` patterns 1, 5, 6. |
@@ -79,7 +79,7 @@ A research-backed plan to extend the `/context` extension so that running `/cont
 Pi does not expose the exact provider-serialized payload, so per-tool tokens we compute will under-count what the provider actually charges (system envelope, tool-use protocol scaffolding, etc.). The details view will surface a small note when our `sum(systemPrompt + tools)` differs from the assistant's reported `cacheRead + cacheWrite`.
 
 ## Phase 1 — Discovery
-- [ ] step 1: confirm `estimateTokens(message)` is exported from `@mariozechner/pi-coding-agent` (it is — re-exported from `core/compaction/compaction.js`, chars/4 heuristic; images counted as 1200 tokens)
+- [ ] step 1: confirm `estimateTokens(message)` is exported from `@earendil-works/pi-coding-agent` (it is — re-exported from `core/compaction/compaction.js`, chars/4 heuristic; images counted as 1200 tokens)
 - [ ] step 2: confirm `ctx.getSystemPrompt()` is available in `ExtensionCommandContext` and returns the fully-built system prompt string
 - [ ] step 3: confirm `pi.getActiveTools()` / `pi.getAllTools()` return `{ name, description, parameters, sourceInfo }`; use `getActiveTools()` since only those are sent
 - [ ] step 4: verify no public API returns Pi's exact serialized tool payload — per-tool tokens must be approximated via `name + description + JSON.stringify(parameters)` / 4

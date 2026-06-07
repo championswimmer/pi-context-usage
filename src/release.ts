@@ -3,8 +3,8 @@ import type {
   ExecResult,
   ExtensionAPI,
   ExtensionCommandContext,
-} from "@mariozechner/pi-coding-agent";
-import type { AutocompleteItem } from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-coding-agent";
+import type { AutocompleteItem } from "@earendil-works/pi-tui";
 
 const RELEASE_TYPES = ["major", "minor", "patch"] as const;
 type ReleaseType = (typeof RELEASE_TYPES)[number];
