@@ -7,6 +7,14 @@
   ],
   "author": "",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/championswimmer/pi-context-usage"
+  },
+  "homepage": "https://github.com/championswimmer/pi-context-usage#readme",
+  "bugs": {
+    "url": "https://github.com/championswimmer/pi-context-usage/issues"
+  },
   "pi": {
     "extensions": [
       "./src/index.ts"
