@@ -1,7 +1,7 @@
 ---
 name: release
 description: Cut a new release for this repository. Use when asked to bump a major, minor, or patch version, publish to npm, create or push a git tag, or walk through the repo's release process. Prefer the built-in /release major|minor|patch command in this repo.
-compatibility: Requires a clean git working tree, git push access to the repository, and npm publish access for the package.
+compatibility: Requires a clean git working tree, git push access to the repository, and npm Trusted Publishing configured for this package/workflow.
 ---
 
 # Release
@@ -19,7 +19,7 @@ In this repository, prefer the automated slash command:
 ```
 
 The `/release` extension command is the canonical release flow for this repo.
-It performs the release instead of asking the model to manually stitch together shell commands.
+It prepares the release commit/tag and lets GitHub Actions publish via npm Trusted Publishing instead of asking the model to manually stitch together shell commands.
 
 ## What `/release` does
 
@@ -31,16 +31,15 @@ The command performs this workflow:
 4. Verifies the git working tree is clean
 5. Detects the current branch and git remote
 6. Verifies the release tag does not already exist locally or on the remote
-7. Verifies npm authentication with `npm whoami`
-8. Checks that the target version is not already published to npm
-9. Runs the smoke test `npm run test:mock`
-10. Prompts the user for confirmation
-11. Runs `npm version <level> --no-git-tag-version`
-12. Commits the version bump as `release: vX.Y.Z`
-13. Runs `npm publish --access public`
-14. Creates a git tag `vX.Y.Z`
-15. Pushes the branch to the configured remote
-16. Pushes the tag to GitHub
+7. Checks that the target version is not already published to npm
+8. Runs the smoke test `npm run test:mock`
+9. Prompts the user for confirmation
+10. Runs `npm version <level> --no-git-tag-version`
+11. Commits the version bump as `release: vX.Y.Z`
+12. Creates a git tag `vX.Y.Z`
+13. Pushes the branch to the configured remote
+14. Pushes the tag to GitHub
+15. GitHub Actions publishes the package to npm via Trusted Publishing
 
 ## Repository-specific details
 
@@ -50,9 +49,10 @@ The command performs this workflow:
 - Tag format: `vX.Y.Z`
 - Publish workflow: `.github/workflows/publish.yml`
 - Smoke test: `npm run test:mock`
+- Trusted publishing: npm OIDC trusted publisher configured for `publish.yml`
 
 The GitHub Actions publish workflow is intentionally tolerant of duplicate publishes.
-If `/release` already published the version to npm, the tag-triggered workflow should skip the duplicate publish instead of failing.
+If the version is already on npm for any reason, the tag-triggered workflow should skip the duplicate publish instead of failing.
 
 ## When to use the command
 
@@ -72,9 +72,9 @@ Before releasing, make sure these conditions hold:
 
 - The working tree is clean
 - The user intends to publish publicly
-- npm credentials are available
 - The next version does not already exist on npm
 - The git tag does not already exist
+- Trusted Publishing is configured on npm for this repository/workflow
 
 If any preflight check fails, stop and show the error instead of forcing the release.
 
@@ -97,7 +97,6 @@ npm run test:mock
 npm version <major|minor|patch> --no-git-tag-version
 git add package.json package-lock.json
 git commit -m "release: vX.Y.Z"
-npm publish --access public
 git tag vX.Y.Z
 git push origin <branch>
 git push origin vX.Y.Z
@@ -110,6 +109,7 @@ Replace `X.Y.Z` with the bumped version and `<branch>` with the current branch.
 If the release workflow changes, keep these in sync:
 
 - `src/index.ts` release command implementation
+- `src/release.ts`
 - `.github/workflows/publish.yml`
 - `README.md`
 - this skill file

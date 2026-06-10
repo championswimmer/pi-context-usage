@@ -150,19 +150,19 @@ The `/release` command will:
 - run `npm run test:mock`
 - bump `package.json` and `package-lock.json`
 - create a `release: vX.Y.Z` commit
-- publish to npm
 - create a `vX.Y.Z` git tag
 - push the branch and tag to GitHub
+- let `.github/workflows/publish.yml` publish to npm via Trusted Publishing
 
 Prerequisites:
 
 - you are on the branch you want to release from
 - you can push to the repository remote
-- `npm whoami` succeeds for an account that can publish `pi-context-usage`
+- npm Trusted Publishing is configured for this package and `publish.yml`
 
 ## Release skill
 
-This package also ships a `release` skill that teaches pi when and how to use the repo's release flow. If the skill is loaded manually, it will direct the agent to prefer:
+This repo includes a `release` skill in `.agents/skills/release/` that teaches pi when and how to use the repo's release flow. If the skill is loaded manually, it will direct the agent to prefer:
 
 ```text
 /release major|minor|patch

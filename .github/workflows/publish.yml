@@ -3,14 +3,15 @@ name: Publish to npm
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v*'
 
 jobs:
   publish:
-    name: Build & Publish
+    name: Publish with Trusted Publishing
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -19,15 +20,21 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+
+      - name: Show Node/npm versions
+        run: |
+          node --version
+          npm --version
 
       - name: Install dependencies
         run: npm ci
 
       - name: Verify tag matches package version
         run: |
-          TAG="${GITHUB_REF_NAME}"           # e.g. v0.1.0
+          TAG="${GITHUB_REF_NAME}"           # e.g. v1.0.0
           PKG_VERSION="v$(node -p "require('./package.json').version")"
           echo "Tag: $TAG  —  package.json: $PKG_VERSION"
           if [ "$TAG" != "$PKG_VERSION" ]; then
@@ -46,5 +53,3 @@ jobs:
           fi
 
           npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

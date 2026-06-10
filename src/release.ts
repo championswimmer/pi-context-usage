@@ -195,14 +195,6 @@ async function assertTagDoesNotExist(
   }
 }
 
-async function assertNpmAuth(pi: ExtensionAPI, cwd: string): Promise<string> {
-  const result = await exec(pi, "npm", ["whoami"], {
-    cwd,
-    timeout: 15_000,
-  });
-  return result.stdout.trim();
-}
-
 async function assertVersionNotPublished(
   pi: ExtensionAPI,
   cwd: string,
@@ -264,7 +256,6 @@ async function handleReleaseCommand(
     await assertCleanWorkingTree(pi, ctx.cwd);
     await assertTagDoesNotExist(pi, ctx.cwd, remote, tag);
 
-    const npmUser = await assertNpmAuth(pi, ctx.cwd);
     await assertVersionNotPublished(pi, ctx.cwd, packageInfo.name, nextVersion);
     await runReleaseSmokeTest(pi, ctx);
 
@@ -274,9 +265,9 @@ async function handleReleaseCommand(
       `Git branch: ${branch}`,
       `Git remote: ${remote} (${remoteUrl})`,
       `Git tag: ${tag}`,
-      `npm account: ${npmUser}`,
       "",
-      "This will bump package.json/package-lock.json, commit the change, publish to npm, push the branch, and push the tag.",
+      "This will bump package.json/package-lock.json, commit the change, push the branch, and push the tag.",
+      "npm publication will be performed by .github/workflows/publish.yml via Trusted Publishing.",
     ];
 
     if (ctx.hasUI) {
@@ -308,12 +299,6 @@ async function handleReleaseCommand(
       timeout: 60_000,
     });
 
-    ctx.ui.notify(`Publishing ${packageInfo.name}@${packageInfo.version} to npm`, "info");
-    await exec(pi, "npm", ["publish", "--access", "public"], {
-      cwd: ctx.cwd,
-      timeout: 300_000,
-    });
-
     ctx.ui.notify(`Tagging release as ${tag}`, "info");
     await exec(pi, "git", ["tag", tag], {
       cwd: ctx.cwd,
@@ -334,10 +319,10 @@ async function handleReleaseCommand(
 
     ctx.ui.notify(
       [
-        `Release complete: ${packageInfo.name}@${packageInfo.version}`,
+        `Release prepared: ${packageInfo.name}@${packageInfo.version}`,
         `Branch pushed: ${remote}/${branch}`,
         `Tag pushed: ${tag}`,
-        "GitHub Actions will see the tag push; if npm is already published, the workflow will skip the duplicate publish.",
+        "GitHub Actions will publish this tag to npm via Trusted Publishing.",
       ].join("\n"),
       "info"
     );
@@ -365,7 +350,7 @@ async function handleReleaseCommand(
 export function registerReleaseCommand(pi: ExtensionAPI) {
   pi.registerCommand("release", {
     description:
-      "Bump package version, commit it, publish to npm, and push the git tag",
+      "Bump package version, commit it, and push the git tag for GitHub Actions publishing",
     getArgumentCompletions: getReleaseCompletions,
     handler: async (args, ctx) => {
       await handleReleaseCommand(pi, args, ctx);

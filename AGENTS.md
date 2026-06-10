@@ -68,9 +68,10 @@ The overlay keeps the summary grid visible and provides expandable sections for:
 ### `src/release.ts`
 Contains the extracted `/release` workflow:
 - validates git state
-- verifies npm auth and unpublished version
+- verifies the target version is still unpublished
 - runs `npm run test:mock`
-- bumps version, commits, publishes, tags, and pushes
+- bumps version, commits, tags, and pushes
+- relies on GitHub Actions Trusted Publishing for the npm publish step
 
 ### `tests/mock-context.ts`
 Standalone Bun test script that:
