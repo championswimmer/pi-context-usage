@@ -3,3 +3,6 @@ dist/
 .env
 .DS_Store
 .agents/
+.github/
+docs/
+tests/
