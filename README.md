@@ -10,6 +10,15 @@ A [pi](https://github.com/badlogic/pi-mono) extension package that adds:
 >
 > ![demo](./docs/recording.gif)
 
+## Check out my other Pi extensions
+
+- [![pi-auto-theme](https://img.shields.io/badge/🎨_pi--auto--theme-blue?style=flat-square)](https://github.com/championswimmer/pi-auto-theme) — Automatically syncs Pi's theme with your OS dark/light mode appearance in real-time.
+- [![pi-cache-graph](https://img.shields.io/badge/📊_pi--cache--graph-orange?style=flat-square)](https://github.com/championswimmer/pi-cache-graph) — Visualizes LLM prompt cache hit rates and token statistics across turns in your TUI.
+- [![pi-context-prune](https://img.shields.io/badge/✂️_pi--context--prune-green?style=flat-square)](https://github.com/championswimmer/pi-context-prune) — Automatically prunes verbose tool outputs from future LLM context while preserving full history.
+- [![pi-context-usage](https://img.shields.io/badge/🪟_pi--context--usage-purple?style=flat-square)](https://github.com/championswimmer/pi-context-usage) — Visualizes context window token distribution (system prompt, tools, messages, buffer) in a dot-grid summary.
+- [![pi-speedometer](https://img.shields.io/badge/⚡_pi--speedometer-yellow?style=flat-square)](https://github.com/championswimmer/pi-speedometer) — Displays live LLM generation speed (tokens/sec) and time-to-first-token (TTFT) in the status bar.
+- [![pi-subscription-meter](https://img.shields.io/badge/💳_pi--subscription--meter-red?style=flat-square)](https://github.com/championswimmer/pi-subscription-meter) — Surfaces subscription tiers, rate limits, and quota consumption across AI providers in a tabbed dialog.
+
 ## Usage
 
 ### Context summary
