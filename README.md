@@ -1,5 +1,8 @@
 # pi-context-usage
 
+[![npm version](https://img.shields.io/npm/v/pi-context-usage?style=flat-square)](https://www.npmjs.com/package/pi-context-usage)
+[![npm downloads](https://img.shields.io/npm/dm/pi-context-usage?style=flat-square)](https://www.npmjs.com/package/pi-context-usage)
+
 A [pi](https://github.com/badlogic/pi-mono) extension package that adds:
 
 - `/context` — a dot-grid visualization of current context usage
