@@ -13,6 +13,18 @@ A [pi](https://github.com/badlogic/pi-mono) extension package that adds:
 >
 > ![demo](./docs/recording.gif)
 
+## Install
+
+### As a pi package
+
+```bash
+pi install pi-context-usage
+```
+
+### Manual (project-local)
+
+Copy or symlink this directory into `.pi/extensions/pi-context-usage/`.
+
 ## Check out my other Pi extensions
 
 - [![pi-auto-theme](https://img.shields.io/badge/🎨_pi--auto--theme-blue?style=flat-square)](https://github.com/championswimmer/pi-auto-theme) — Auto-syncs Pi theme with OS dark/light mode.
@@ -99,18 +111,6 @@ Per-turn and cumulative values are visible-entry estimates from estimateTokens(m
   Σ  10:06  Σ  Earlier discussion established the design…      38     197 cum est
  #3  10:10  U  Add the system prompt and active-tools breakdown next.      65     262 cum est
 ```
-
-## Install
-
-### As a pi package
-
-```bash
-pi install git:github.com/championswimmer/pi-context-usage
-```
-
-### Manual (project-local)
-
-Copy or symlink this directory into `.pi/extensions/pi-context-usage/`.
 
 ## Development
 
