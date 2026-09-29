@@ -63,12 +63,15 @@ function usageHint(): string {
 
 function buildSummary(
   pi: ExtensionAPI,
-  ctx: ExtensionCommandContext
+  ctx: ExtensionCommandContext,
+  systemPromptText?: string
 ): UsageBuckets | null {
   const usage = ctx.getContextUsage();
   if (!usage || !ctx.model) return null;
 
-  const systemPrompt = ctx.getSystemPrompt();
+  // getSystemPrompt() is the base prompt outside an agent request. It does not
+  // include request-local before_agent_start changes made by earlier extensions.
+  const systemPrompt = systemPromptText ?? ctx.getSystemPrompt();
   const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
 
   const activeTools = getActiveToolDetails(pi);
@@ -559,14 +562,21 @@ class ContextDetailsOverlay implements Component {
   }
 }
 
-async function showDetails(pi: ExtensionAPI, ctx: ExtensionCommandContext): Promise<void> {
-  const buckets = buildSummary(pi, ctx);
+async function showDetails(
+  pi: ExtensionAPI,
+  ctx: ExtensionCommandContext,
+  systemPromptText?: string
+): Promise<void> {
+  const buckets = buildSummary(pi, ctx, systemPromptText);
   if (!buckets) {
     ctx.ui.notify("No context usage data available. Send a message first.", "warning");
     return;
   }
 
-  const systemTools = computeSystemToolsSection(ctx, pi);
+  const systemTools = computeSystemToolsSection(
+    systemPromptText === undefined ? ctx : { ...ctx, getSystemPrompt: () => systemPromptText },
+    pi
+  );
   const turns = computeTurnBreakdown(ctx.sessionManager.getBranch());
 
   if (!ctx.hasUI) {
@@ -588,14 +598,38 @@ async function showDetails(pi: ExtensionAPI, ctx: ExtensionCommandContext): Prom
   );
 }
 
+/** Replace a structured prompt section with Pi's latest request-local value. */
+function replacePromptSection(prompt: string, name: string, value: string | null): string {
+  const section = new RegExp(`\\n\\n<${name}>\\n[\\s\\S]*?\\n<\\/${name}>`);
+  if (section.test(prompt)) return prompt.replace(section, value === null ? "" : `\n\n${value}`);
+  return value === null || !value ? prompt : `${prompt}\n\n${value}`;
+}
+
 export function registerContextCommand(pi: ExtensionAPI) {
+  // before_agent_start handlers are called in extension-load order. The skill
+  // picker is loaded before this package, so event.systemPrompt is the exact
+  // prompt after its selected-skills filter, unlike ctx.getSystemPrompt() in a
+  // later slash command (which exposes Pi's unfiltered base prompt).
+  let latestRequestSystemPrompt: string | undefined;
+  pi.on("before_agent_start", (event) => {
+    latestRequestSystemPrompt = event.systemPrompt;
+  });
+  pi.on("context_with_system", (event) => {
+    for (const message of event.messages as Array<{ role?: string; sections?: Record<string, string | null> }>) {
+      const skills = message.role === "system" ? message.sections?.skills : undefined;
+      if (latestRequestSystemPrompt !== undefined && skills !== undefined) {
+        latestRequestSystemPrompt = replacePromptSection(latestRequestSystemPrompt, "skills", skills);
+      }
+    }
+  });
+
   pi.registerCommand("context", {
     description: "Show context usage summary or /context details breakdown",
     getArgumentCompletions: getContextCompletions,
     handler: async (args, ctx) => {
       const normalized = args.trim().toLowerCase();
 
-      const buckets = buildSummary(pi, ctx);
+      const buckets = buildSummary(pi, ctx, latestRequestSystemPrompt);
       if (!buckets) {
         ctx.ui.notify("No context usage data available. Send a message first.", "warning");
         return;
@@ -607,7 +641,7 @@ export function registerContextCommand(pi: ExtensionAPI) {
       }
 
       if (normalized === "details") {
-        await showDetails(pi, ctx);
+        await showDetails(pi, ctx, latestRequestSystemPrompt);
         return;
       }
 

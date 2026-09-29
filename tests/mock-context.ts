@@ -371,9 +371,15 @@ assert.equal(
 );
 
 const commands = new Map<string, Function>();
+const eventHandlers = new Map<string, Function[]>();
 const mockPi = {
   registerCommand: (name: string, command: { handler: Function }) => {
     commands.set(name, command.handler);
+  },
+  on: (event: string, handler: Function) => {
+    const handlers = eventHandlers.get(event) ?? [];
+    handlers.push(handler);
+    eventHandlers.set(event, handlers);
   },
   getActiveTools: () => mockTools.map((tool) => tool.name),
   getAllTools: () => [...(mockTools as any)],
@@ -414,12 +420,24 @@ const mockCtx = {
 
 registerExtension(mockPi as any);
 
+// ctx.getSystemPrompt() is intentionally the unfiltered catalog. Simulate the
+// earlier skill-picker handler so /context must use the post-filter prompt.
+const filteredSystemPrompt = systemPrompt.replace(/\n  <skill>\n    <name>release<\/name>[\s\S]*?\n  <\/skill>/, "");
+for (const handler of eventHandlers.get("before_agent_start") ?? []) {
+  await handler({ systemPrompt: filteredSystemPrompt }, mockCtx);
+}
+
 const contextHandler = commands.get("context");
 if (!contextHandler) {
   throw new Error("context command was not registered");
 }
 
 await contextHandler(mode === "details" ? "details" : "", mockCtx as any);
+assert.match(
+  outputs[0],
+  new RegExp(`System Prompt:\\s+${Math.ceil(filteredSystemPrompt.length / 4)}\\b`),
+  "summary should use the prompt after earlier extensions filter skills"
+);
 if (mode === "details") {
   initTheme("dark");
   const tui = { terminal: { rows: 80 }, requestRender: () => {} };
