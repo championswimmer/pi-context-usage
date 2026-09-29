@@ -1,115 +1,66 @@
 ---
 name: release
-description: Cut a new release for this repository. Use when asked to bump a major, minor, or patch version, publish to npm, create or push a git tag, or walk through the repo's release process. Prefer the built-in /release major|minor|patch command in this repo.
+description: Cut a new release for this repository. Use when asked to bump a major, minor, or patch version, publish to npm, create or push a git tag, or walk through the repo's release process.
 compatibility: Requires a clean git working tree, git push access to the repository, and npm Trusted Publishing configured for this package/workflow.
 ---
 
 # Release
 
-Use this skill when the user wants to publish a new version of this package.
+Use this private repository-maintainer skill when the user wants to publish a new version of this package. The published extension deliberately exposes no `/release` command.
 
-## Preferred workflow
+## Release workflow
 
-In this repository, prefer the automated slash command:
+1. Confirm the requested release type is `major`, `minor`, or `patch`.
+2. Confirm the user intends a public npm release.
+3. Verify the working tree is clean and identify the current branch and its remote.
+4. Run `npm run test:mock`.
+5. Bump the version without creating an automatic commit or tag.
+6. Verify that the target npm version and `vX.Y.Z` tag do not already exist.
+7. Commit the lockfile and manifest, create the tag, then push the branch and tag.
+8. GitHub Actions publishes through npm Trusted Publishing.
 
-```text
-/release major
-/release minor
-/release patch
+Run the following commands from the repository root, replacing `<level>` with `major`, `minor`, or `patch`:
+
+```bash
+git status --short
+git branch --show-current
+git remote get-url origin
+npm run test:mock
+npm version <level> --no-git-tag-version
+VERSION="$(node -p "require('./package.json').version")"
+TAG="v$VERSION"
+npm view "pi-context-usage@$VERSION" version
+git ls-remote --exit-code --tags origin "$TAG"
+git add package.json package-lock.json
+git commit -m "release: $TAG"
+git tag "$TAG"
+git push origin "$(git branch --show-current)"
+git push origin "$TAG"
 ```
 
-The `/release` extension command is the canonical release flow for this repo.
-It prepares the release commit/tag and lets GitHub Actions publish via npm Trusted Publishing instead of asking the model to manually stitch together shell commands.
+## Required preflight handling
 
-## What `/release` does
-
-The command performs this workflow:
-
-1. Validates the argument is `major`, `minor`, or `patch`
-2. Waits for the agent to become idle
-3. Reads `package.json` to determine the current package name and version
-4. Verifies the git working tree is clean
-5. Detects the current branch and git remote
-6. Verifies the release tag does not already exist locally or on the remote
-7. Checks that the target version is not already published to npm
-8. Runs the smoke test `npm run test:mock`
-9. Prompts the user for confirmation
-10. Runs `npm version <level> --no-git-tag-version`
-11. Commits the version bump as `release: vX.Y.Z`
-12. Creates a git tag `vX.Y.Z`
-13. Pushes the branch to the configured remote
-14. Pushes the tag to GitHub
-15. GitHub Actions publishes the package to npm via Trusted Publishing
+- Stop if `git status --short` prints anything.
+- Treat a successful `npm view` as evidence that the version is already published; do not proceed.
+- Treat a successful `git ls-remote --exit-code --tags` as evidence that the tag already exists; do not proceed.
+- `npm view` and `git ls-remote` intentionally exit non-zero when their target is absent. Check those results before continuing; do not blindly chain this exact block with `set -e`.
+- Before committing, confirm `package.json` and `package-lock.json` contain the intended version and review `git diff --check`.
+- If a command fails after `npm version`, stop and report `git status`; do not retry blindly.
 
 ## Repository-specific details
 
 - Package name: `pi-context-usage`
 - Version source: `package.json`
-- Lockfile updated: `package-lock.json`
+- Lockfile: `package-lock.json`
 - Tag format: `vX.Y.Z`
 - Publish workflow: `.github/workflows/publish.yml`
 - Smoke test: `npm run test:mock`
-- Trusted publishing: npm OIDC trusted publisher configured for `publish.yml`
+- npm publication uses OIDC Trusted Publishing.
 
-The GitHub Actions publish workflow is intentionally tolerant of duplicate publishes.
-If the version is already on npm for any reason, the tag-triggered workflow should skip the duplicate publish instead of failing.
+## Version guidance
 
-## When to use the command
+- `patch`: backwards-compatible bugfix
+- `minor`: backwards-compatible feature
+- `major`: breaking change
 
-Use `/release <level>` when the user asks any of the following:
-
-- make a release
-- publish a new version
-- cut a patch release
-- bump minor or major version
-- tag and publish to npm
-
-If the user only wants to inspect or explain the process, describe it instead of running it.
-
-## Safety rules
-
-Before releasing, make sure these conditions hold:
-
-- The working tree is clean
-- The user intends to publish publicly
-- The next version does not already exist on npm
-- The git tag does not already exist
-- Trusted Publishing is configured on npm for this repository/workflow
-
-If any preflight check fails, stop and show the error instead of forcing the release.
-
-## How to respond
-
-- If the user explicitly asks to perform a release, use `/release major`, `/release minor`, or `/release patch`.
-- If the user is unsure which bump level to use, explain the difference first:
-  - `patch`: backwards-compatible bugfix release
-  - `minor`: backwards-compatible feature release
-  - `major`: breaking changes
-- After a successful release, summarize the new version, branch push, and tag push.
-- If the release fails after mutating the repo, tell the user to inspect `git status` before retrying.
-
-## Manual fallback
-
-If `/release` is unavailable for some reason, use this manual fallback carefully:
-
-```bash
-npm run test:mock
-npm version <major|minor|patch> --no-git-tag-version
-git add package.json package-lock.json
-git commit -m "release: vX.Y.Z"
-git tag vX.Y.Z
-git push origin <branch>
-git push origin vX.Y.Z
-```
-
-Replace `X.Y.Z` with the bumped version and `<branch>` with the current branch.
-
-## Notes for future maintenance
-
-If the release workflow changes, keep these in sync:
-
-- `src/index.ts` release command implementation
-- `src/release.ts`
-- `.github/workflows/publish.yml`
-- `README.md`
-- this skill file
+After a successful release, report the version, pushed branch, and pushed tag.

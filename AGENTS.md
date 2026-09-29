@@ -7,7 +7,7 @@ This is a **pi extension** that adds two context-inspection commands to [pi](htt
 - `/context` — the compact dot-grid visualization of context-window usage
 - `/context details` — a deeper token breakdown for the visible system prompt, active tools, and conversation turns
 
-The repository also includes the `/release` command and a matching `release` skill.
+The repository's release workflow is maintained as a private `release` skill under `.agents/skills/release/`; it is not part of the published extension.
 
 ## Repository Structure
 
@@ -17,8 +17,7 @@ The repository also includes the `/release` command and a matching `release` ski
 ├── README.md
 ├── package.json
 ├── src/
-│   ├── index.ts                # Entry point; registers commands and re-exports helpers
-│   ├── release.ts              # /release implementation
+│   ├── index.ts                # Entry point; registers /context and re-exports helpers
 │   └── context/
 │       ├── index.ts            # /context command routing + details overlay/plain rendering
 │       ├── tokens.ts           # Usage bucket math and shared formatting helpers
@@ -33,7 +32,6 @@ The repository also includes the `/release` command and a matching `release` ski
 ### `src/index.ts`
 Small entry point that:
 - registers `/context` from `src/context/index.ts`
-- registers `/release` from `src/release.ts`
 - re-exports shared helpers used by the mock test
 
 ### `src/context/tokens.ts`
@@ -65,13 +63,8 @@ The overlay keeps the summary grid visible and provides expandable sections for:
 - Tools
 - Conversation
 
-### `src/release.ts`
-Contains the extracted `/release` workflow:
-- validates git state
-- verifies the target version is still unpublished
-- runs `npm run test:mock`
-- bumps version, commits, tags, and pushes
-- relies on GitHub Actions Trusted Publishing for the npm publish step
+### `.agents/skills/release/SKILL.md`
+Private repository-maintainer instructions for validating, tagging, and pushing releases. `.agents/` is excluded from the npm package.
 
 ### `tests/mock-context.ts`
 Standalone Bun test script that:

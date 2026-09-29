@@ -7,7 +7,6 @@ A [pi](https://github.com/badlogic/pi-mono) extension package that adds:
 
 - `/context` — a dot-grid visualization of current context usage
 - `/context details` — a deeper breakdown of system prompt, active tools, and conversation turns
-- `/release <major|minor|patch>` — the repository release workflow
 
 > DEMO:   
 >
@@ -148,35 +147,3 @@ All visible estimates use a `chars / 4` heuristic. The grid distributes cells pr
 - **Turn tokens**: summed via pi's exported `estimateTokens(message)` heuristic
 
 Because pi does not expose the exact provider-serialized request payload, the visible `system prompt + tools` total is intentionally labeled as an approximation. The cache-provided number in `details` remains the authoritative cached-prompt value, and it is not directly comparable to the visible estimates.
-
-## Release automation
-
-```text
-/release patch
-/release minor
-/release major
-```
-
-The `/release` command will:
-
-- verify the git working tree is clean
-- run `npm run test:mock`
-- bump `package.json` and `package-lock.json`
-- create a `release: vX.Y.Z` commit
-- create a `vX.Y.Z` git tag
-- push the branch and tag to GitHub
-- let `.github/workflows/publish.yml` publish to npm via Trusted Publishing
-
-Prerequisites:
-
-- you are on the branch you want to release from
-- you can push to the repository remote
-- npm Trusted Publishing is configured for this package and `publish.yml`
-
-## Release skill
-
-This repo includes a `release` skill in `.agents/skills/release/` that teaches pi when and how to use the repo's release flow. If the skill is loaded manually, it will direct the agent to prefer:
-
-```text
-/release major|minor|patch
-```
