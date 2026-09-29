@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { initTheme } from "@earendil-works/pi-coding-agent";
+import { splitSystemPrompt } from "../src/context/breakdown";
 import registerExtension, {
   computeToolBreakdown,
   computeTurnBreakdown,
@@ -327,12 +329,31 @@ const mockBranch = [
 
 const systemPrompt = [
   "You are pi, a coding agent.",
-  "Keep responses concise and grounded in repository files.",
-  "Use read before edit, and explain the work clearly.",
-  "When context gets large, compact completed batches.",
-  "Prefer active tools only, and avoid guessing APIs.",
-  "Follow repository-specific instructions from AGENTS.md and loaded skills.",
-].join("\n\n").repeat(22);
+  "<tools>\n- read: Read file contents.\n</tools>",
+  "<rules>\n- Be concise.\n</rules>",
+  "<project_context>\n<project_instructions path=\"AGENTS.md\">\nFollow project rules.\n</project_instructions>\n</project_context>",
+  "<skills>\nThe following skills provide specialized instructions.\n<available_skills>\n  <skill>\n    <name>planning</name>\n    <description>Plan &amp; execute phases.</description>\n    <location>/tmp/planning/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>release</name>\n    <description>Publish a new version.</description>\n    <location>/tmp/release/SKILL.md</location>\n  </skill>\n</available_skills>\n</skills>",
+  "<cwd>\n/tmp/project\n</cwd>",
+].join("\n\n");
+
+const promptParts = splitSystemPrompt(systemPrompt);
+assert.deepEqual(promptParts.map((part) => part.name), ["preamble", "tools", "rules", "project_context", "skills", "cwd"]);
+assert.equal(promptParts.map((part) => part.text).join(""), systemPrompt, "sections must preserve every character, including separators");
+assert.equal(promptParts.reduce((sum, part) => sum + part.chars, 0), systemPrompt.length);
+assert.equal(promptParts[4].label, "Available Skills");
+assert.deepEqual(promptParts[4].skills.map((skill) => skill.name), ["planning", "release"]);
+assert.equal(promptParts[4].skills[0].description, "Plan & execute phases.");
+assert.equal(promptParts[4].skills[0].descriptionChars, "Plan &amp; execute phases.".length);
+assert.equal(promptParts[4].skills[0].nameChars, "planning".length);
+assert.equal(promptParts[4].skills[0].chars, systemPrompt.match(/  <skill>\n[\s\S]*?  <\/skill>/)?.[0].length);
+assert.ok(promptParts[4].chars > promptParts[4].skills.reduce((total, skill) => total + skill.chars, 0));
+assert.deepEqual(splitSystemPrompt("Unstructured custom prompt").map((part) => part.name), ["preamble"]);
+assert.deepEqual(splitSystemPrompt("<custom_section>\nHello\n</custom_section>").map((part) => part.name), ["custom_section"]);
+assert.deepEqual(splitSystemPrompt("<skills>\nNo skills available.\n</skills>")[0].skills, []);
+assert.equal(
+  splitSystemPrompt("<skills>\n<available_skills>\n  <skill>\n    <name>multiline</name>\n    <description>first line\nsecond line</description>\n    <location>/tmp/SKILL.md</location>\n  </skill>\n</available_skills>\n</skills>")[0].skills[0].description,
+  "first line\nsecond line"
+);
 
 const toolBreakdown = computeToolBreakdown([...(mockTools as any)]);
 assert.ok(toolBreakdown[0].totalTokens >= toolBreakdown[1].totalTokens, "tools should be sorted descending by total tokens");
@@ -399,6 +420,41 @@ if (!contextHandler) {
 }
 
 await contextHandler(mode === "details" ? "details" : "", mockCtx as any);
+if (mode === "details") {
+  initTheme("dark");
+  const tui = { terminal: { rows: 80 }, requestRender: () => {} };
+  const uiCtx = {
+    ...mockCtx,
+    hasUI: true,
+    ui: {
+      ...mockCtx.ui,
+      custom: async (factory: Function) => {
+        const overlay = factory(tui, mockTheme, {}, () => {});
+        assert.match(overlay.render(110).join("\n"), /Available Skills/);
+        overlay.handleInput("\x1b[B"); // Focus Introduction
+        overlay.handleInput("\x1b[B"); // Focus the tools prompt section
+        overlay.handleInput("\r");
+        assert.match(overlay.render(110).join("\n"), /- read: Read file contents/);
+        overlay.handleInput("\x1b[D"); // Collapse the tools section
+        assert.doesNotMatch(overlay.render(110).join("\n"), /- read: Read file contents/);
+        for (let i = 0; i < 3; i++) overlay.handleInput("\x1b[B"); // Focus Available Skills
+        overlay.handleInput("\r");
+        assert.match(overlay.render(110).join("\n"), /planning.*name 8, desc 26/);
+        overlay.handleInput("\x1b[B"); // Skills section overhead
+        overlay.handleInput("\x1b[B"); // planning
+        overlay.handleInput("\r");
+        assert.match(overlay.render(110).join("\n"), /Plan & execute phases/);
+        overlay.handleInput("\x1b[D");
+        assert.doesNotMatch(overlay.render(110).join("\n"), /Plan & execute phases/);
+      },
+    },
+  };
+  await contextHandler("details", uiCtx as any);
+  assert.match(outputs[0], /Available Skills/);
+  assert.match(outputs[0], /Tools \(prompt instructions\)/);
+  assert.match(outputs[0], /Project Context/);
+  assert.match(outputs[0], /planning: .*name 8, description 26/);
+}
 
 for (const output of outputs) {
   console.log("--- OUTPUT START ---");

@@ -18,11 +18,30 @@ export type ToolBreakdown = {
   schemaPreviewLines: string[];
 };
 
+export type PromptSkill = {
+  name: string;
+  description: string;
+  nameChars: number;
+  descriptionChars: number;
+  chars: number;
+  tokens: number;
+};
+
+export type SystemPromptPart = {
+  name: string;
+  label: string;
+  tokens: number;
+  chars: number;
+  text: string;
+  skills: PromptSkill[];
+};
+
 export type SystemToolsSection = {
   systemPrompt: {
     tokens: number;
     chars: number;
     text: string;
+    parts: SystemPromptPart[];
   };
   tools: ToolBreakdown[];
   totalTokens: number;
@@ -60,15 +79,100 @@ export type TurnBreakdown = {
   dominantRole: TurnMessageDetail["role"] | "compactionSummary";
 };
 
-export function computeSystemPromptTokens(text: string): {
-  tokens: number;
-  chars: number;
-  text: string;
-} {
+const PROMPT_LABELS: Record<string, string> = {
+  preamble: "Introduction",
+  tools: "Tools (prompt instructions)",
+  rules: "Rules",
+  docs: "Documentation",
+  addendum: "Addendum",
+  project_context: "Project Context",
+  skills: "Available Skills",
+  cwd: "Working Directory",
+};
+
+function unescapeXml(value: string): string {
+  return value.replace(/&(amp|lt|gt|quot|apos);/g, (_, entity: string) =>
+    ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[entity] ?? _
+  );
+}
+
+/** Parse only advertised skills from the visible prompt, not SKILL.md bodies.
+ * Counts use escaped text as serialized in the prompt (not decoded display text).
+ */
+export function parsePromptSkills(text: string): PromptSkill[] {
+  const listing = text.match(/<available_skills>\n([\s\S]*?)\n<\/available_skills>/)?.[1];
+  if (!listing) return [];
+  const skills: PromptSkill[] = [];
+  const blockPattern = /^  <skill>\n[\s\S]*?^  <\/skill>/gm;
+  for (const match of listing.matchAll(blockPattern)) {
+    const block = match[0];
+    const name = block.match(/^    <name>([^\n]*)<\/name>$/m)?.[1];
+    const description = block.match(/^    <description>([\s\S]*?)<\/description>$/m)?.[1];
+    if (name === undefined || description === undefined) continue;
+    skills.push({
+      name: unescapeXml(name),
+      description: unescapeXml(description),
+      nameChars: name.length,
+      descriptionChars: description.length,
+      chars: block.length,
+      tokens: Math.ceil(block.length / 4),
+    });
+  }
+  return skills;
+}
+
+/** Pi wraps named prompt sections in <name>…</name>, separated by blank lines.
+ * A forced/legacy prompt may have no such sections; keep it whole in that case.
+ */
+export function splitSystemPrompt(text: string): SystemPromptPart[] {
+  const parts: SystemPromptPart[] = [];
+  const section = /(?:^|\n\n)<([a-z][a-z0-9_-]*)>\n[\s\S]*?\n<\/\1>(?=\n\n|$)/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  const add = (name: string, content: string) => {
+    if (!content) return;
+    parts.push({
+      name,
+      label: PROMPT_LABELS[name] ?? name.replace(/_/g, " "),
+      tokens: Math.ceil(content.length / 4),
+      chars: content.length,
+      text: content,
+      skills: name === "skills" ? parsePromptSkills(content) : [],
+    });
+  };
+
+  while ((match = section.exec(text)) !== null) {
+    const start = match.index + (match[0].startsWith("\n\n") ? 2 : 0);
+    const preceding = text.slice(cursor, start);
+    if (parts.length) {
+      const previous = parts[parts.length - 1];
+      previous.text += preceding;
+      previous.chars = previous.text.length;
+      previous.tokens = Math.ceil(previous.chars / 4);
+    } else {
+      add("preamble", preceding);
+    }
+    add(match[1], text.slice(start, section.lastIndex));
+    cursor = section.lastIndex;
+  }
+  if (parts.length) {
+    const previous = parts[parts.length - 1];
+    previous.text += text.slice(cursor);
+    previous.chars = previous.text.length;
+    previous.tokens = Math.ceil(previous.chars / 4);
+  } else {
+    add("preamble", text);
+  }
+  return parts;
+}
+
+export function computeSystemPromptTokens(text: string) {
   return {
     tokens: Math.ceil(text.length / 4),
     chars: text.length,
     text,
+    parts: splitSystemPrompt(text),
   };
 }
 
@@ -417,6 +521,7 @@ export function formatSystemToolsSection(section: SystemToolsSection, theme: The
   const nameWidth = Math.max(
     "Tool".length,
     ...section.tools.map((tool) => tool.name.length),
+    ...section.systemPrompt.parts.map((part) => part.label.length + 2),
     "System prompt".length
   );
   const tokenWidth = Math.max(
@@ -440,6 +545,15 @@ export function formatSystemToolsSection(section: SystemToolsSection, theme: The
       padLeft(fmtTokens(section.systemPrompt.tokens), tokenWidth)
     )}  ${padLeft(formatInt(section.systemPrompt.chars), charWidth)}`,
   ];
+
+  for (const part of section.systemPrompt.parts) {
+    lines.push(
+      `  ${padRight(part.label, nameWidth - 2)}  ${padLeft(fmtTokens(part.tokens), tokenWidth)}  ${padLeft(formatInt(part.chars), charWidth)}`
+    );
+    for (const skill of part.skills) {
+      lines.push(`    ${skill.name}: ${fmtTokens(skill.tokens)} tokens est., ${formatInt(skill.chars)} chars (name ${formatInt(skill.nameChars)}, description ${formatInt(skill.descriptionChars)})`);
+    }
+  }
 
   if (section.tools.length === 0) {
     lines.push(theme.fg("muted", "No active tools."));

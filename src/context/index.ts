@@ -37,8 +37,11 @@ type SectionKey = "systemPrompt" | "tools" | "conversation";
 
 type VisibleRow =
   | { kind: "section"; key: SectionKey }
-  | { kind: "systemPromptSummary" }
-  | { kind: "systemPromptContent"; lineIndex: number }
+  | { kind: "systemPromptPart"; index: number }
+  | { kind: "systemPromptContent"; index: number; lineIndex: number }
+  | { kind: "skillOverhead"; index: number }
+  | { kind: "skill"; partIndex: number; index: number }
+  | { kind: "skillDescription"; partIndex: number; index: number; lineIndex: number }
   | { kind: "systemPromptNote" }
   | { kind: "tool"; index: number }
   | { kind: "toolDetail"; index: number; lineIndex: number }
@@ -158,8 +161,10 @@ class ContextDetailsOverlay implements Component {
   };
   private readonly expandedTools = new Set<number>();
   private readonly expandedTurns = new Set<number>();
-  private expandedSystemPromptContent = false;
-  private readonly systemPromptLines: string[];
+  private readonly expandedPromptParts = new Set<number>();
+  private readonly expandedSkills = new Set<string>();
+  private readonly promptPartLines: string[][];
+  private readonly skillDescriptionLines: string[][][];
   private focusIndex = 0;
   private scrollOffset = 0;
 
@@ -171,7 +176,10 @@ class ContextDetailsOverlay implements Component {
     private readonly turns: TurnBreakdown[],
     private readonly done: (result: void) => void
   ) {
-    this.systemPromptLines = systemTools.systemPrompt.text.split("\n");
+    this.promptPartLines = systemTools.systemPrompt.parts.map((part) => part.text.split("\n"));
+    this.skillDescriptionLines = systemTools.systemPrompt.parts.map((part) =>
+      part.skills.map((skill) => skill.description.match(/.{1,76}(?:\s|$)|\S+/g)?.map((line) => line.trim()) ?? [""])
+    );
   }
 
   invalidate(): void {}
@@ -180,12 +188,26 @@ class ContextDetailsOverlay implements Component {
     const rows: VisibleRow[] = [{ kind: "section", key: "systemPrompt" }];
 
     if (this.sectionExpanded.systemPrompt) {
-      rows.push({ kind: "systemPromptSummary" });
-      if (this.expandedSystemPromptContent) {
-        this.systemPromptLines.forEach((_, lineIndex) => {
-          rows.push({ kind: "systemPromptContent", lineIndex });
-        });
-      }
+      this.systemTools.systemPrompt.parts.forEach((part, index) => {
+        rows.push({ kind: "systemPromptPart", index });
+        if (this.expandedPromptParts.has(index)) {
+          if (part.skills.length) {
+            rows.push({ kind: "skillOverhead", index });
+            part.skills.forEach((_, skillIndex) => {
+              rows.push({ kind: "skill", partIndex: index, index: skillIndex });
+              if (this.expandedSkills.has(`${index}:${skillIndex}`)) {
+                this.skillDescriptionLines[index][skillIndex].forEach((_, lineIndex) => {
+                  rows.push({ kind: "skillDescription", partIndex: index, index: skillIndex, lineIndex });
+                });
+              }
+            });
+          } else {
+            this.promptPartLines[index].forEach((_, lineIndex) => {
+              rows.push({ kind: "systemPromptContent", index, lineIndex });
+            });
+          }
+        }
+      });
       if (
         this.systemTools.cachedTokens !== null &&
         this.systemTools.cachedTokens !== this.systemTools.totalTokens
@@ -274,10 +296,18 @@ class ContextDetailsOverlay implements Component {
       case "section":
         this.sectionExpanded[row.key] = expandOnly ? true : !this.sectionExpanded[row.key];
         return;
-      case "systemPromptSummary":
-        if (expandOnly) this.expandedSystemPromptContent = true;
-        else this.expandedSystemPromptContent = !this.expandedSystemPromptContent;
+      case "systemPromptPart":
+        if (expandOnly) this.expandedPromptParts.add(row.index);
+        else if (this.expandedPromptParts.has(row.index)) this.expandedPromptParts.delete(row.index);
+        else this.expandedPromptParts.add(row.index);
         return;
+      case "skill": {
+        const key = `${row.partIndex}:${row.index}`;
+        if (expandOnly) this.expandedSkills.add(key);
+        else if (this.expandedSkills.has(key)) this.expandedSkills.delete(key);
+        else this.expandedSkills.add(key);
+        return;
+      }
       case "tool":
         if (expandOnly) this.expandedTools.add(row.index);
         else if (this.expandedTools.has(row.index)) this.expandedTools.delete(row.index);
@@ -302,12 +332,21 @@ class ContextDetailsOverlay implements Component {
       case "section":
         this.sectionExpanded[row.key] = false;
         return;
-      case "systemPromptSummary":
-        this.expandedSystemPromptContent = false;
+      case "systemPromptPart":
+        this.expandedPromptParts.delete(row.index);
         return;
       case "systemPromptContent": {
-        this.expandedSystemPromptContent = false;
-        const parentIndex = rows.findIndex((candidate) => candidate.kind === "systemPromptSummary");
+        this.expandedPromptParts.delete(row.index);
+        const parentIndex = rows.findIndex((candidate) => candidate.kind === "systemPromptPart" && candidate.index === row.index);
+        if (parentIndex >= 0) this.focusIndex = parentIndex;
+        return;
+      }
+      case "skill":
+        this.expandedSkills.delete(`${row.partIndex}:${row.index}`);
+        return;
+      case "skillDescription": {
+        this.expandedSkills.delete(`${row.partIndex}:${row.index}`);
+        const parentIndex = rows.findIndex((candidate) => candidate.kind === "skill" && candidate.partIndex === row.partIndex && candidate.index === row.index);
         if (parentIndex >= 0) this.focusIndex = parentIndex;
         return;
       }
@@ -403,18 +442,34 @@ class ContextDetailsOverlay implements Component {
         text = `${expanded ? "▾" : "▸"} ${this.sectionTitle(row.key)}`;
         break;
       }
-      case "systemPromptSummary": {
+      case "systemPromptPart": {
         indent = 2;
-        const spExpanded = this.expandedSystemPromptContent;
-        const spLabel = `System prompt: ${fmtTokens(this.systemTools.systemPrompt.tokens)} tokens (${formatInt(
-          this.systemTools.systemPrompt.chars
-        )} chars)`;
-        text = `${spExpanded ? "▾" : "▸"} ${this.theme.bold(this.theme.fg("accent", spLabel))}`;
+        const part = this.systemTools.systemPrompt.parts[row.index];
+        text = `${this.expandedPromptParts.has(row.index) ? "▾" : "▸"} ${this.theme.bold(this.theme.fg("accent", part.label))}  ${fmtTokens(part.tokens)} tokens est. (${formatInt(part.chars)} chars)`;
         break;
       }
       case "systemPromptContent": {
         indent = 4;
-        text = this.theme.fg("muted", this.systemPromptLines[row.lineIndex] ?? "");
+        text = this.theme.fg("muted", this.promptPartLines[row.index][row.lineIndex] ?? "");
+        break;
+      }
+      case "skillOverhead": {
+        indent = 4;
+        const part = this.systemTools.systemPrompt.parts[row.index];
+        const skillChars = part.skills.reduce((sum, skill) => sum + skill.chars, 0);
+        text = this.theme.fg("muted", `Skills section instructions, wrapper and separators: ${formatInt(part.chars - skillChars)} chars`);
+        break;
+      }
+      case "skill": {
+        indent = 4;
+        const skill = this.systemTools.systemPrompt.parts[row.partIndex].skills[row.index];
+        const expanded = this.expandedSkills.has(`${row.partIndex}:${row.index}`);
+        text = `${expanded ? "▾" : "▸"} ${this.theme.fg("accent", skill.name)}  ~${fmtTokens(skill.tokens)} tok · ${formatInt(skill.chars)} chars (name ${formatInt(skill.nameChars)}, desc ${formatInt(skill.descriptionChars)})`;
+        break;
+      }
+      case "skillDescription": {
+        indent = 6;
+        text = this.theme.fg("muted", this.skillDescriptionLines[row.partIndex][row.index][row.lineIndex] ?? "");
         break;
       }
       case "systemPromptNote": {

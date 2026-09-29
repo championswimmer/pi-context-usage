@@ -73,8 +73,8 @@ claude-sonnet-4-5   31.4k / 200.0k tokens (16%)
 
 When UI is available, this opens a keyboard-driven overlay that keeps the grid summary at the top and adds expandable sections for:
 
-- **System Prompt** — visible system prompt token estimate from `ctx.getSystemPrompt()`
-- **Tools** — active tool breakdown from `pi.getAllTools()` filtered by `pi.getActiveTools()`
+- **System Prompt** — visible estimate from `ctx.getSystemPrompt()`, split into independently expandable introduction and Pi's `<tools>`, `<rules>`, `<docs>`, `<project_context>`, `<skills>`, `<cwd>`, and other named sections. Each part shows its own estimated tokens and characters; expanding it reveals its text. **Available Skills** expands into one row per advertised skill; each row shows its estimated prompt tokens, total serialized characters (including markup and location), and the separate character counts for its name and description. Expand a skill to read its description. These counts reflect the escaped text in the prompt, not the contents of skill files.
+- **Tools** — active tool schema breakdown from `pi.getAllTools()` filtered by `pi.getActiveTools()` (separate from the `<tools>` prompt instructions)
 - **Conversation** — one line per user turn, plus inline compaction summaries and per-message drill-down
 
 Keyboard shortcuts in the overlay:
