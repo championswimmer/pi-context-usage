@@ -474,6 +474,24 @@ if (mode === "details") {
   assert.match(outputs[0], /planning: .*name 8, description 26/);
 }
 
+// The leading system message carries every section; later patches only carry what changed.
+const promptWithoutSkills = systemPrompt.split("\n\n").filter((part) => !part.startsWith("<skills>")).join("\n\n");
+for (const [messages, expectedPrompt, label] of [
+  [[{ role: "system", content: "", sections: { preamble: "..." } }], promptWithoutSkills, "drop skills missing from the leading system message"],
+  [[{ role: "system", content: "", sections: { preamble: "...", skills: systemPrompt.split("\n\n")[4] } }, { role: "system", content: "", sections: { tools: "..." } }], systemPrompt, "keep skills when a later patch omits them"],
+] as const) {
+  for (const handler of eventHandlers.get("before_agent_start") ?? []) {
+    await handler({ systemPrompt }, mockCtx);
+  }
+  for (const handler of eventHandlers.get("context_with_system") ?? []) {
+    await handler({ messages }, mockCtx);
+  }
+  const outputCount = outputs.length;
+  await contextHandler("", mockCtx as any);
+  assert.match(outputs[outputCount], new RegExp(`System Prompt:\\s+${Math.ceil(expectedPrompt.length / 4)}\\b`), `summary should ${label}`);
+  outputs.splice(outputCount);
+}
+
 for (const output of outputs) {
   console.log("--- OUTPUT START ---");
   console.log(output);

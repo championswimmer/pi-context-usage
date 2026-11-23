@@ -615,8 +615,11 @@ export function registerContextCommand(pi: ExtensionAPI) {
     latestRequestSystemPrompt = event.systemPrompt;
   });
   pi.on("context_with_system", (event) => {
-    for (const message of event.messages as Array<{ role?: string; sections?: Record<string, string | null> }>) {
-      const skills = message.role === "system" ? message.sections?.skills : undefined;
+    const messages = event.messages as Array<{ role?: string; sections?: Record<string, string | null> }>;
+    for (const [index, message] of messages.entries()) {
+      if (message.role !== "system") continue;
+      // The leading system message carries every section, so a missing skills key means the catalog was removed.
+      const skills = index === 0 && message.sections ? (message.sections.skills ?? null) : message.sections?.skills;
       if (latestRequestSystemPrompt !== undefined && skills !== undefined) {
         latestRequestSystemPrompt = replacePromptSection(latestRequestSystemPrompt, "skills", skills);
       }
