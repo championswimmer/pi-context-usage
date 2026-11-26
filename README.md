@@ -1,4 +1,4 @@
-# pi-context-usage
+# <img src="https://raw.githubusercontent.com/championswimmer/pi-context-usage/main/assets/icon.png" width="44" height="44" align="absmiddle" alt=""> pi-context-usage
 
 [![npm version](https://img.shields.io/npm/v/pi-context-usage?style=flat-square)](https://www.npmjs.com/package/pi-context-usage)
 [![npm downloads](https://img.shields.io/npm/dm/pi-context-usage?style=flat-square)](https://www.npmjs.com/package/pi-context-usage)
