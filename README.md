@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/championswimmer/pi-context-usage/main/assets/icon.png" width="44" height="44" align="absmiddle" alt=""> pi-context-usage
+![pi-context-usage](https://raw.githubusercontent.com/championswimmer/pi-context-usage/main/assets/banner.png)
 
 [![npm version](https://img.shields.io/npm/v/pi-context-usage?style=flat-square)](https://www.npmjs.com/package/pi-context-usage)
 [![npm downloads](https://img.shields.io/npm/dm/pi-context-usage?style=flat-square)](https://www.npmjs.com/package/pi-context-usage)
@@ -8,33 +8,26 @@ A [pi](https://github.com/badlogic/pi-mono) extension package that adds:
 - `/context` — a dot-grid visualization of current context usage
 - `/context details` — a deeper breakdown of system prompt, active tools, and conversation turns
 
-> DEMO:   
->
-> ![demo](./docs/recording.gif)
-
 ## Install
 
-### As a pi package
-
 ```bash
-pi install pi-context-usage
+pi install npm:pi-context-usage
 ```
 
 ### Manual (project-local)
 
 Copy or symlink this directory into `.pi/extensions/pi-context-usage/`.
 
-## Check out my other Pi extensions
+## Why use it
 
-- [![pi-cache-graph](https://img.shields.io/badge/📊_pi--cache--graph-orange?style=flat-square)](https://github.com/championswimmer/pi-cache-graph) — Real-time prompt cache hit rates and token metrics.
-- [![pi-checklist](https://img.shields.io/badge/✅_pi--checklist-teal?style=flat-square)](https://github.com/championswimmer/pi-checklist) — Session task checklist with dependencies and a TUI renderer.
-- [![pi-context-decisions](https://img.shields.io/badge/🧠_pi--context--decisions-indigo?style=flat-square)](https://github.com/championswimmer/pi-context-decisions) — Selects relevant skills and optionally filters tools for each task.
-- [![pi-context-prune](https://img.shields.io/badge/✂️_pi--context--prune-green?style=flat-square)](https://github.com/championswimmer/pi-context-prune) — Prunes verbose tool outputs from context while preserving history.
-- [![pi-context-usage](https://img.shields.io/badge/🪟_pi--context--usage-purple?style=flat-square)](https://github.com/championswimmer/pi-context-usage) — Dot-grid visualization of context window token usage.
-- [![pi-gauge](https://img.shields.io/badge/⚡_pi--gauge-yellow?style=flat-square)](https://github.com/championswimmer/pi-gauge) — Live tokens/sec and TTFT in the status bar.
-- [![pi-subagent-manager](https://img.shields.io/badge/🤖_pi--subagent--manager-blue?style=flat-square)](https://github.com/championswimmer/pi-subagent-manager) — Delegate work to parallel subagents and monitor their progress.
+- See at a glance how full the context window is, in a compact dot grid.
+- Separate System Prompt, Tools, Messages, Empty and Buffer categories, each with its own symbol and color.
+- `/context details` breaks down the system prompt, active tool schemas and conversation turns.
+- Browse the details in a keyboard-driven overlay, or get a plain-text dump when there is no UI.
 
-## Usage
+## How to use
+
+![demo](./docs/recording.gif)
 
 ### Context summary
 
@@ -147,3 +140,13 @@ All visible estimates use a `chars / 4` heuristic. The grid distributes cells pr
 - **Turn tokens**: summed via pi's exported `estimateTokens(message)` heuristic
 
 Because pi does not expose the exact provider-serialized request payload, the visible `system prompt + tools` total is intentionally labeled as an approximation. The cache-provided number in `details` remains the authoritative cached-prompt value, and it is not directly comparable to the visible estimates.
+
+## Check out my other Pi extensions
+
+- [![pi-cache-graph](https://img.shields.io/badge/📊_pi--cache--graph-orange?style=flat-square)](https://github.com/championswimmer/pi-cache-graph) — Real-time prompt cache hit rates and token metrics.
+- [![pi-checklist](https://img.shields.io/badge/✅_pi--checklist-teal?style=flat-square)](https://github.com/championswimmer/pi-checklist) — Session task checklist with dependencies and a TUI renderer.
+- [![pi-context-decisions](https://img.shields.io/badge/🧠_pi--context--decisions-indigo?style=flat-square)](https://github.com/championswimmer/pi-context-decisions) — Selects relevant skills and optionally filters tools for each task.
+- [![pi-context-prune](https://img.shields.io/badge/✂️_pi--context--prune-green?style=flat-square)](https://github.com/championswimmer/pi-context-prune) — Prunes verbose tool outputs from context while preserving history.
+- [![pi-context-usage](https://img.shields.io/badge/🪟_pi--context--usage-purple?style=flat-square)](https://github.com/championswimmer/pi-context-usage) — Dot-grid visualization of context window token usage.
+- [![pi-gauge](https://img.shields.io/badge/⚡_pi--gauge-yellow?style=flat-square)](https://github.com/championswimmer/pi-gauge) — Live tokens/sec and TTFT in the status bar.
+- [![pi-subagent-manager](https://img.shields.io/badge/🤖_pi--subagent--manager-blue?style=flat-square)](https://github.com/championswimmer/pi-subagent-manager) — Delegate work to parallel subagents and monitor their progress.
