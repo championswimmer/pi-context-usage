@@ -18,7 +18,8 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/championswimmer/pi-context-usage/main/assets/banner.png"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
